@@ -1,3 +1,34 @@
 [
-  { "vendor": "NVIDIA", "model": "QM8700", "ports": 40, "speed": "200G", "technology": "InfiniBand" }
+  {
+    "vendor": "NVIDIA",
+    "model": "QM8700",
+    "technology": "HDR",
+    "ports": [
+      {
+        "count": 40,
+        "port_type": "QSFP56",
+        "lanes": 4,
+        "lane_speed_gbps": 50,
+        "max_speed_gbps": 200,
+        "split_support": [1, 2],
+        "notes": "Each QSFP56 HDR port can run as 1x200G or split into 2x100G."
+      }
+    ]
+  },
+  {
+    "vendor": "NVIDIA",
+    "model": "QM9700",
+    "technology": "NDR",
+    "ports": [
+      {
+        "count": 64,
+        "port_type": "OSFP",
+        "lanes": 8,
+        "lane_speed_gbps": 100,
+        "max_speed_gbps": 800,
+        "split_support": [1, 2, 4],
+        "notes": "Each OSFP 800G port can run as 1x800G, 2x400G, or 4x200G."
+      }
+    ]
+  }
 ]

@@ -1,3 +1,62 @@
 [
-  { "type": "DAC", "max_length_m": 3, "speed": "200G", "compatible_with": ["InfiniBand"] }
+  {
+    "type": "DAC",
+    "technology": "HDR",
+    "end_a": "QSFP56",
+    "end_b": "QSFP56",
+    "lanes": 4,
+    "lane_speed_gbps": 50,
+    "aggregate_speed_gbps": 200,
+    "split_factor": 1,
+    "max_length_m": 3,
+    "notes": "HDR200G DAC cable, direct attach copper"
+  },
+  {
+    "type": "DAC Splitter",
+    "technology": "HDR",
+    "end_a": "QSFP56",
+    "end_b": "2x SFP56",
+    "lanes": 2,
+    "lane_speed_gbps": 50,
+    "aggregate_speed_gbps": 100,
+    "split_factor": 2,
+    "max_length_m": 3,
+    "notes": "1x200G QSFP56 to 2x100G SFP56 splitter DAC"
+  },
+  {
+    "type": "AOC",
+    "technology": "NDR",
+    "end_a": "OSFP",
+    "end_b": "OSFP",
+    "lanes": 8,
+    "lane_speed_gbps": 100,
+    "aggregate_speed_gbps": 800,
+    "split_factor": 1,
+    "max_length_m": 30,
+    "notes": "800G NDR AOC fiber cable"
+  },
+  {
+    "type": "AOC Splitter",
+    "technology": "NDR",
+    "end_a": "OSFP",
+    "end_b": "2x QSFP112",
+    "lanes": 4,
+    "lane_speed_gbps": 100,
+    "aggregate_speed_gbps": 400,
+    "split_factor": 2,
+    "max_length_m": 30,
+    "notes": "1x800G OSFP to 2x400G QSFP112 splitter AOC"
+  },
+  {
+    "type": "AOC Splitter",
+    "technology": "NDR",
+    "end_a": "OSFP",
+    "end_b": "4x QSFP56",
+    "lanes": 2,
+    "lane_speed_gbps": 100,
+    "aggregate_speed_gbps": 200,
+    "split_factor": 4,
+    "max_length_m": 30,
+    "notes": "1x800G OSFP to 4x200G QSFP56 splitter AOC"
+  }
 ]
