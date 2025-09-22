@@ -1,0 +1,3 @@
+[
+  { "type": "DAC", "max_length_m": 3, "speed": "200G", "compatible_with": ["InfiniBand"] }
+]
