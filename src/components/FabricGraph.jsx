@@ -224,11 +224,15 @@ function FabricGraph({ data }) {
           }
         }
         
+        // Determine if this edge should be highlighted (has link count label)
+        const hasLinkCount = linkLabel !== undefined;
+        
         edges.push({ 
           from: lid, 
           to: sid, 
-          dashes: true, 
-          color: { color: '#888' },
+          dashes: !hasLinkCount, // Solid line for edges with link counts, dashed for others
+          color: { color: hasLinkCount ? '#333' : '#888' }, // Darker color for edges with link counts
+          width: hasLinkCount ? 2 : 1, // Thicker line for edges with link counts
           label: linkLabel,
           font: { vadjust: -10, size: 18 }
         });
