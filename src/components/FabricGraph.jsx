@@ -18,66 +18,219 @@ function FabricGraph({ data }) {
     const edges = [];
     let nodeId = 1;
 
-    // Spines (top layer)
+    // Spines (top layer) - show first 1, last 1, and "..." if more than 3
     const spineIds = [];
-    for (let i = 0; i < spineCount; i++) {
-      const id = nodeId++;
-      spineIds.push(id);
+    const maxSpinesToShow = 3;
+    
+    if (spineCount <= maxSpinesToShow) {
+      // Show all spines
+      for (let i = 0; i < spineCount; i++) {
+        const id = nodeId++;
+        spineIds.push(id);
+        nodes.push({
+          id,
+          label: `Spine ${i + 1}\n${spine?.model?.model || ''}`,
+          group: 'spine',
+          shape: 'box',
+          color: '#CDE7FF',
+          font: { size: 18 }
+        });
+      }
+    } else {
+      // Show first 1 spine
+      for (let i = 0; i < 1; i++) {
+        const id = nodeId++;
+        spineIds.push(id);
+        nodes.push({
+          id,
+          label: `Spine ${i + 1}\n${spine?.model?.model || ''}`,
+          group: 'spine',
+          shape: 'box',
+          color: '#CDE7FF',
+          font: { size: 18 }
+        });
+      }
+      
+      // Add "..." placeholder
+      const ellipsisId = nodeId++;
+      spineIds.push(ellipsisId);
       nodes.push({
-        id,
-        label: `Spine ${i + 1}\n${spine?.model?.model || ''}`,
+        id: ellipsisId,
+        label: `...\n(${spineCount - 2} more)`,
         group: 'spine',
         shape: 'box',
-        color: '#CDE7FF',
-        font: { size: 12 }
+        color: '#E8E8E8',
+        font: { size: 16 }
       });
+      
+      // Show last 1 spine
+      for (let i = spineCount - 1; i < spineCount; i++) {
+        const id = nodeId++;
+        spineIds.push(id);
+        nodes.push({
+          id,
+          label: `Spine ${i + 1}\n${spine?.model?.model || ''}`,
+          group: 'spine',
+          shape: 'box',
+          color: '#CDE7FF',
+          font: { size: 18 }
+        });
+      }
     }
 
-    // Leaves (middle layer) and endpoints (bottom)
+    // Leaves (middle layer) and endpoints (bottom) - show first 2, last 2, and "..." if more than 5
     const leafIds = [];
-    for (let l = 0; l < leafCount; l++) {
-      const leafId = nodeId++;
-      leafIds.push(leafId);
+    const maxLeavesToShow = 5;
+    
+    if (leafCount <= maxLeavesToShow) {
+      // Show all leaves
+      for (let l = 0; l < leafCount; l++) {
+        const leafId = nodeId++;
+        leafIds.push(leafId);
+        nodes.push({
+          id: leafId,
+          label: `Leaf ${l + 1}\n${leaf?.model?.model || ''}`,
+          group: 'leaf',
+          shape: 'box',
+          color: '#D2E5FF',
+          font: { size: 18 }
+        });
+
+        const thisLeaf = perLeaf[l] || { endpointCount: 0, endpointCounts: {} };
+        const endpointCounts = thisLeaf.endpointCounts || {};
+
+        // Create one endpoint node per speed group: label like "100G xN"
+        Object.entries(endpointCounts).forEach(([speed, count]) => {
+          const epGroupId = nodeId++;
+          nodes.push({
+            id: epGroupId,
+            label: `${speed} x${count}`,
+            group: 'endpoint',
+            shape: 'dot',
+            color: '#FFD2D2',
+            size: 12,
+            font: { size: 18 }
+          });
+          // Connect grouped endpoint to leaf
+          edges.push({ from: epGroupId, to: leafId });
+        });
+      }
+    } else {
+      // Show first 2 leaves
+      for (let l = 0; l < 2; l++) {
+        const leafId = nodeId++;
+        leafIds.push(leafId);
+        nodes.push({
+          id: leafId,
+          label: `Leaf ${l + 1}\n${leaf?.model?.model || ''}`,
+          group: 'leaf',
+          shape: 'box',
+          color: '#D2E5FF',
+          font: { size: 18 }
+        });
+
+        const thisLeaf = perLeaf[l] || { endpointCount: 0, endpointCounts: {} };
+        const endpointCounts = thisLeaf.endpointCounts || {};
+
+        Object.entries(endpointCounts).forEach(([speed, count]) => {
+          const epGroupId = nodeId++;
+          nodes.push({
+            id: epGroupId,
+            label: `${speed} x${count}`,
+            group: 'endpoint',
+            shape: 'dot',
+            color: '#FFD2D2',
+            size: 12,
+            font: { size: 18 }
+          });
+          edges.push({ from: epGroupId, to: leafId });
+        });
+      }
+      
+      // Add "..." placeholder for leaves
+      const leafEllipsisId = nodeId++;
+      leafIds.push(leafEllipsisId);
       nodes.push({
-        id: leafId,
-        label: `Leaf ${l + 1}\n${leaf?.model?.model || ''}`,
+        id: leafEllipsisId,
+        label: `...\n(${leafCount - 4} more)`,
         group: 'leaf',
         shape: 'box',
-        color: '#D2E5FF',
-        font: { size: 12 }
+        color: '#E8E8E8',
+        font: { size: 16 }
       });
-
-      const thisLeaf = perLeaf[l] || { endpointCount: 0, endpointCounts: {} };
-      const endpointCounts = thisLeaf.endpointCounts || {};
-
-      // Create one endpoint node per speed group: label like "100G xN"
-      Object.entries(endpointCounts).forEach(([speed, count]) => {
-        const epGroupId = nodeId++;
+      
+      // Add "..." placeholder for endpoints under the middle leaf
+      const epEllipsisId = nodeId++;
+      nodes.push({
+        id: epEllipsisId,
+        label: `...\n(more endpoints)`,
+        group: 'endpoint',
+        shape: 'dot',
+        color: '#F0F0F0',
+        size: 12,
+        font: { size: 14 }
+      });
+      edges.push({ from: epEllipsisId, to: leafEllipsisId });
+      
+      // Show last 2 leaves
+      for (let l = leafCount - 2; l < leafCount; l++) {
+        const leafId = nodeId++;
+        leafIds.push(leafId);
         nodes.push({
-          id: epGroupId,
-          label: `${speed} x${count}`,
-          group: 'endpoint',
-          shape: 'dot',
-          color: '#FFD2D2',
-          size: 12,
-          font: { size: 12 }
+          id: leafId,
+          label: `Leaf ${l + 1}\n${leaf?.model?.model || ''}`,
+          group: 'leaf',
+          shape: 'box',
+          color: '#D2E5FF',
+          font: { size: 18 }
         });
-        // Connect grouped endpoint to leaf
-        edges.push({ from: epGroupId, to: leafId });
-      });
+
+        const thisLeaf = perLeaf[l] || { endpointCount: 0, endpointCounts: {} };
+        const endpointCounts = thisLeaf.endpointCounts || {};
+
+        Object.entries(endpointCounts).forEach(([speed, count]) => {
+          const epGroupId = nodeId++;
+          nodes.push({
+            id: epGroupId,
+            label: `${speed} x${count}`,
+            group: 'endpoint',
+            shape: 'dot',
+            color: '#FFD2D2',
+            size: 12,
+            font: { size: 18 }
+          });
+          edges.push({ from: epGroupId, to: leafId });
+        });
+      }
     }
 
     // Leaf-to-Spine links: represent linksPerLeafPerSpine with an edge label
     const linksPerLeafPerSpine = topology.linksPerLeafPerSpine || 1;
-    leafIds.forEach((lid) => {
-      spineIds.forEach((sid) => {
+    leafIds.forEach((lid, leafIndex) => {
+      spineIds.forEach((sid, spineIndex) => {
+        let linkLabel = undefined;
+        
+        // Only show link labels on first and last leaf switches
+        const isFirstOrLastLeaf = leafIndex === 0 || leafIndex === leafIds.length - 1;
+        
+        if (isFirstOrLastLeaf) {
+          linkLabel = linksPerLeafPerSpine > 1 ? `x${linksPerLeafPerSpine}` : undefined;
+          
+          // If this is the "..." spine (middle spine when spineCount > 3), multiply by hidden spine count
+          if (spineCount > maxSpinesToShow && spineIndex === 1) {
+            const hiddenSpineCount = spineCount - 2; // Total spines minus first and last shown
+            const totalLinksToHiddenSpines = linksPerLeafPerSpine * hiddenSpineCount;
+            linkLabel = totalLinksToHiddenSpines > 1 ? `x${totalLinksToHiddenSpines}` : undefined;
+          }
+        }
+        
         edges.push({ 
           from: lid, 
           to: sid, 
           dashes: true, 
           color: { color: '#888' },
-          label: linksPerLeafPerSpine > 1 ? `x${linksPerLeafPerSpine}` : undefined,
-          font: { vadjust: -10, size: 10 }
+          label: linkLabel,
+          font: { vadjust: -10, size: 18 }
         });
       });
     });
@@ -92,29 +245,30 @@ function FabricGraph({ data }) {
       layout: {
         hierarchical: {
           enabled: true,
-          levelSeparation: 220,
-          nodeSpacing: 220,
-          treeSpacing: 260,
+          levelSeparation: 150,
+          nodeSpacing: 200,
+          treeSpacing: 200,
           blockShifting: true,
           edgeMinimization: true,
           parentCentralization: true,
           direction: 'UD',
-          sortMethod: 'hubsize'
+          sortMethod: 'hubsize',
+          shakeTowards: 'roots'
         }
       },
       edges: {
-        smooth: { type: 'continuous', roundness: 0.4 },
+        smooth: false,
         width: 1,
         color: { color: '#848484' }
       }
     };
 
-    // Prepare data with explicit levels
+    // Set explicit levels for better layering (spines at top, endpoints at bottom)
     const updateWithLevels = {
       nodes: nodes.map(n => {
-        if (n.group === 'endpoint') return { ...n, level: 0 };
+        if (n.group === 'spine') return { ...n, level: 0 };
         if (n.group === 'leaf') return { ...n, level: 1 };
-        if (n.group === 'spine') return { ...n, level: 2 };
+        if (n.group === 'endpoint') return { ...n, level: 2 };
         return n;
       }),
       edges
@@ -125,7 +279,37 @@ function FabricGraph({ data }) {
       try {
         networkRef.current.setSize('100%', '100%');
         networkRef.current.redraw();
+        
+        // First fit to show all nodes
         networkRef.current.fit({ animation: false });
+        
+        // Calculate center of mass of all nodes after layout
+        setTimeout(() => {
+          try {
+            const positions = networkRef.current.getPositions();
+            const nodeIds = Object.keys(positions);
+            
+            if (nodeIds.length > 0) {
+              let centerX = 0;
+              let centerY = 0;
+              
+              nodeIds.forEach(id => {
+                centerX += positions[id].x;
+                centerY += positions[id].y;
+              });
+              
+              centerX /= nodeIds.length;
+              centerY /= nodeIds.length;
+              
+              // Move view to center of mass
+              networkRef.current.moveTo({ 
+                position: { x: centerX, y: centerY }, 
+                scale: networkRef.current.getScale(),
+                animation: false 
+              });
+            }
+          } catch {}
+        }, 200);
       } catch {}
     };
 
