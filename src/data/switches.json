@@ -21,7 +21,7 @@
     "technology": "NDR",
     "ports": [
       {
-        "count": 64,
+        "count": 32,
         "port_type": "OSFP",
         "lanes": 8,
         "lane_speed_gbps": 100,

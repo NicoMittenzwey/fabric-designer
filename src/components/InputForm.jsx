@@ -7,6 +7,7 @@ function InputForm({ setFabricData }) {
   const [spineModelIndex, setSpineModelIndex] = useState(switches.length > 1 ? 1 : 0);
   const [blockingType, setBlockingType] = useState('non-blocking'); // 'non-blocking' | 'blocking'
   const [customUplinksPerLeaf, setCustomUplinksPerLeaf] = useState(0);
+  const [distributionMethod, setDistributionMethod] = useState('spread'); // 'spread' | 'fill'
 
   const getTotalFrontPanelPorts = (sw) => {
     if (!sw || !Array.isArray(sw.ports)) return 0;
@@ -55,21 +56,57 @@ function InputForm({ setFabricData }) {
 
   const getTotalEndpoints = () => endpointGroups.reduce((sum, g) => sum + (g.count || 0), 0);
 
-  const distributeEndpointsAcrossLeaves = (leafCount) => {
-    // Flatten endpoints preserving speed, then round-robin assign to leaves
+  const distributeEndpointsAcrossLeaves = (leafCount, remainingDownlinkPorts, leafModel) => {
+    // Flatten endpoints preserving speed
     const allEndpoints = [];
     endpointGroups.forEach(g => {
       for (let i = 0; i < (g.count || 0); i++) allEndpoints.push(g.speed);
     });
-    const perLeaf = Array.from({ length: leafCount }, () => ({ endpointCount: 0, endpointCounts: {} }));
-    let idx = 0;
-    allEndpoints.forEach(speed => {
-      const leafIdx = idx % leafCount;
-      perLeaf[leafIdx].endpointCount += 1;
-      perLeaf[leafIdx].endpointCounts[speed] = (perLeaf[leafIdx].endpointCounts[speed] || 0) + 1;
-      idx++;
-    });
-    return perLeaf;
+    
+    const perLeaf = Array.from({ length: leafCount }, () => ({ endpointCount: 0, endpointCounts: {}, portsUsed: 0 }));
+    const portSpec = getLeafPrimaryPortSpec(leafModel);
+    
+    if (distributionMethod === 'fill') {
+      // Fill First: Pack endpoints into leaf switches sequentially, considering port capacity
+      let currentLeaf = 0;
+      
+      allEndpoints.forEach(speed => {
+        const speedGbps = parseSpeedGbps(speed);
+        const endpointsPerPort = capacityPerPortForSpeed(portSpec, speedGbps);
+        
+        // Calculate how many physical ports this endpoint would need
+        const portsNeeded = 1 / endpointsPerPort; // e.g., 400G on 800G port with 2x split = 0.5 ports
+        
+        // Check if current leaf has physical port capacity for one more endpoint
+        if (perLeaf[currentLeaf].portsUsed + portsNeeded > remainingDownlinkPorts && currentLeaf < leafCount - 1) {
+          currentLeaf++;
+        }
+        
+        perLeaf[currentLeaf].endpointCount += 1;
+        perLeaf[currentLeaf].endpointCounts[speed] = (perLeaf[currentLeaf].endpointCounts[speed] || 0) + 1;
+        perLeaf[currentLeaf].portsUsed += portsNeeded;
+      });
+    } else {
+      // Spread Evenly: Round-robin distribution (default behavior)
+      let idx = 0;
+      allEndpoints.forEach(speed => {
+        const leafIdx = idx % leafCount;
+        const speedGbps = parseSpeedGbps(speed);
+        const endpointsPerPort = capacityPerPortForSpeed(portSpec, speedGbps);
+        const portsNeeded = 1 / endpointsPerPort;
+        
+        perLeaf[leafIdx].endpointCount += 1;
+        perLeaf[leafIdx].endpointCounts[speed] = (perLeaf[leafIdx].endpointCounts[speed] || 0) + 1;
+        perLeaf[leafIdx].portsUsed = (perLeaf[leafIdx].portsUsed || 0) + portsNeeded;
+        idx++;
+      });
+    }
+    
+    // Remove portsUsed from final result (internal tracking only)
+    return perLeaf.map(leaf => ({
+      endpointCount: leaf.endpointCount,
+      endpointCounts: leaf.endpointCounts
+    }));
   };
 
   const pickSpineCount = (leafCount, uplinksPerLeaf, spinePorts) => {
@@ -159,7 +196,7 @@ function InputForm({ setFabricData }) {
       return;
     }
 
-    const perLeafDistribution = distributeEndpointsAcrossLeaves(leafCount);
+    const perLeafDistribution = distributeEndpointsAcrossLeaves(leafCount, remainingDownlinkPorts, leafModel);
 
     // Build fabric data
     const totalEndpointsBySpeed = endpointGroups.reduce((acc, g) => {
@@ -189,6 +226,7 @@ function InputForm({ setFabricData }) {
       totalEndpoints: getTotalEndpoints(),
       totalEndpointsBySpeed,
       distribution: {
+        method: distributionMethod,
         perLeaf: perLeafDistribution
       }
     };
@@ -319,6 +357,27 @@ function InputForm({ setFabricData }) {
             disabled={blockingType !== 'blocking'}
             style={{ marginLeft: '10px', width: '60px' }}
           />
+        </label>
+      </div>
+
+      <h4 style={{ marginTop: '20px' }}>Endpoint Distribution</h4>
+      <div style={{ marginTop: '10px' }}>
+        <label>
+          <input
+            type="radio"
+            checked={distributionMethod === 'spread'}
+            onChange={() => setDistributionMethod('spread')}
+          />
+          Spread Evenly (distribute endpoints equally across all leaves)
+        </label>
+
+        <label style={{ display: 'block', marginTop: '5px' }}>
+          <input
+            type="radio"
+            checked={distributionMethod === 'fill'}
+            onChange={() => setDistributionMethod('fill')}
+          />
+          Fill First (pack endpoints into leaf switches, leaving only the last one partially filled)
         </label>
       </div>
 
