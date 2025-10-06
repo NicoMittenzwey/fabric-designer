@@ -123,10 +123,41 @@ function InputForm({ setFabricData }) {
       requiredDownlinkPortsTotal += Math.ceil((g.count || 0) / cap || 0);
     }
 
+    // Corner Case 1: Check if endpoints fit in a single leaf switch (no fabric needed)
+    if (requiredDownlinkPortsTotal <= remainingDownlinkPorts) {
+      alert(`All ${getTotalEndpoints()} endpoints fit in a single ${leafModel.model} switch (${remainingDownlinkPorts} downlink ports available).\n\nNo fabric required - use a single switch instead.`);
+      return;
+    }
+
     // Size number of leaves by how many downlink ports are available per leaf
     const leafCount = Math.max(1, Math.ceil(requiredDownlinkPortsTotal / remainingDownlinkPorts));
 
     const { spineCount, linksPerLeafPerSpine } = pickSpineCount(leafCount, uplinksPerLeaf, spinePorts);
+
+    // Corner Case 2: Check if fabric exceeds physical spine port limits
+    const requiredPortsPerSpine = linksPerLeafPerSpine * leafCount;
+    if (requiredPortsPerSpine > spinePorts) {
+      const maxLeafCount = Math.floor(spinePorts / linksPerLeafPerSpine);
+      const maxEndpoints = maxLeafCount * remainingDownlinkPorts;
+      
+      alert(
+        `⚠️ Fabric Configuration Exceeds Physical Limits\n\n` +
+        `Current configuration requires:\n` +
+        `  • ${leafCount} leaf switches\n` +
+        `  • ${spineCount} spine switches\n` +
+        `  • ${linksPerLeafPerSpine} link(s) per leaf-spine pair\n` +
+        `  • ${requiredPortsPerSpine} ports per spine (EXCEEDS ${spinePorts} available)\n\n` +
+        `Maximum capacity for ${spineModel.model} ${blockingType === 'non-blocking' ? 'fully non-blocking' : ''} fabric:\n` +
+        `  • Max ${maxLeafCount} leaf switches\n` +
+        `  • Approximately ${maxEndpoints} endpoints\n\n` +
+        `Solutions:\n` +
+        `  1. Reduce number of endpoints\n` +
+        `  2. Select a spine switch with more ports\n` +
+        `  3. Use a blocking/oversubscribed configuration (custom uplinks)\n` +
+        `  4. Consider a multi-tier or pod-based architecture`
+      );
+      return;
+    }
 
     const perLeafDistribution = distributeEndpointsAcrossLeaves(leafCount);
 

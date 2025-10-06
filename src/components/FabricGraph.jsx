@@ -209,6 +209,11 @@ function FabricGraph({ data }) {
 
     // Leaf-to-Spine links: represent linksPerLeafPerSpine with an edge label
     const linksPerLeafPerSpine = topology.linksPerLeafPerSpine || 1;
+    
+    // Get uplink speed from spine port spec
+    const spinePortSpeed = spine?.model?.ports?.[0]?.max_speed_gbps || 0;
+    const uplinkSpeedLabel = spinePortSpeed > 0 ? `${spinePortSpeed}G` : '';
+    
     leafIds.forEach((lid, leafIndex) => {
       spineIds.forEach((sid, spineIndex) => {
         let linkLabel = undefined;
@@ -217,13 +222,14 @@ function FabricGraph({ data }) {
         const isFirstOrLastLeaf = leafIndex === 0 || leafIndex === leafIds.length - 1;
         
         if (isFirstOrLastLeaf) {
-          linkLabel = linksPerLeafPerSpine > 1 ? `x${linksPerLeafPerSpine}` : undefined;
+          // Always show link count label on first/last leaves, even if x1, with speed
+          linkLabel = `x${linksPerLeafPerSpine} ${uplinkSpeedLabel}`;
           
           // If this is the "..." spine (middle spine when spineCount > 3), multiply by hidden spine count
           if (spineCount > maxSpinesToShow && spineIndex === 1) {
             const hiddenSpineCount = spineCount - 2; // Total spines minus first and last shown
             const totalLinksToHiddenSpines = linksPerLeafPerSpine * hiddenSpineCount;
-            linkLabel = totalLinksToHiddenSpines > 1 ? `x${totalLinksToHiddenSpines}` : undefined;
+            linkLabel = `x${totalLinksToHiddenSpines} ${uplinkSpeedLabel}`;
           }
         }
         
@@ -673,6 +679,10 @@ function FabricGraph({ data }) {
       console.log('Creating leaf-to-spine connections...');
       const linksPerLeafPerSpine = topology.linksPerLeafPerSpine || 1;
       
+      // Get uplink speed from spine port spec
+      const spinePortSpeed = spine?.model?.ports?.[0]?.max_speed_gbps || 0;
+      const uplinkSpeedLabel = spinePortSpeed > 0 ? `${spinePortSpeed}G` : '';
+      
       // Include ellipsis nodes in connections
       const totalSpinePositions = spinePositions.length;
       const totalLeafPositions = leafPositions.length;
@@ -687,8 +697,8 @@ function FabricGraph({ data }) {
           const isEllipsisSpine = spineCount > maxSpinesToShow && spineIdx === 1; // Middle position is ellipsis
           const isLastSpine = spineCount > maxSpinesToShow && spineIdx === totalSpinePositions - 1; // Last spine
           
-          // Show link count for first/last leaves to all spines (including ellipsis)
-          const showLinkCount = isFirstOrLastLeaf && linksPerLeafPerSpine > 1;
+          // Show link count for first/last leaves to all spines, even if x1
+          const showLinkCount = isFirstOrLastLeaf;
           
           // Create connection line
           const lineColor = showLinkCount ? '333333' : '888888';
@@ -717,8 +727,8 @@ function FabricGraph({ data }) {
               linkCount = linksPerLeafPerSpine * hiddenSpineCount;
             }
             
-            slide.addText(`x${linkCount}`, {
-              x: midX - 0.2, y: midY - 0.1, w: 0.4, h: 0.2,
+            slide.addText(`x${linkCount} ${uplinkSpeedLabel}`, {
+              x: midX - 0.25, y: midY - 0.1, w: 0.5, h: 0.2,
               fontSize: 8, bold: true, color: '333333',
               align: 'center', valign: 'middle',
               fill: { color: 'FFFFFF' },
