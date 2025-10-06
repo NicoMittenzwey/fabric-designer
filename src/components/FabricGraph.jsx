@@ -729,7 +729,7 @@ function FabricGraph({ data }) {
             
             const labelText = isEllipsisSpine ? `x${linkCount}` : `${uplinkSpeedLabel} x${linkCount} `;
             slide.addText(labelText, {
-              x: midX - 0.25, y: midY - 0.1, w: 0.6, h: 0.2,
+              x: midX - 0.25, y: midY - 0.1, w: 0.63, h: 0.2,
               fontSize: 8, bold: true, color: '333333',
               align: 'center', valign: 'middle',
               fill: { color: 'FFFFFF' },

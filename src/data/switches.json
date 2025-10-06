@@ -30,5 +30,37 @@
         "notes": "Each OSFP 800G port can run as 1x800G, 2x400G, or 4x200G."
       }
     ]
+  },
+  {
+    "vendor": "NVIDIA",
+    "model": "Q3200",
+    "technology": "XDR",
+    "ports": [
+      {
+        "count": 36,
+        "port_type": "OSFP",
+        "lanes": 8,
+        "lane_speed_gbps": 200,
+        "max_speed_gbps": 1600,
+        "split_support": [1, 2, 4],
+        "notes": "Each OSFP 1600G port can run as 1x1600G, 2x800G, or 4x400G."
+      }
+    ]
+  },
+  {
+    "vendor": "NVIDIA",
+    "model": "Q3400",
+    "technology": "XDR",
+    "ports": [
+      {
+        "count": 72,
+        "port_type": "OSFP",
+        "lanes": 8,
+        "lane_speed_gbps": 200,
+        "max_speed_gbps": 1600,
+        "split_support": [1, 2, 4],
+        "notes": "Each OSFP 1600G port can run as 1x1600G, 2x800G, or 4x400G."
+      }
+    ]
   }
 ]

@@ -262,6 +262,7 @@ function InputForm({ setFabricData }) {
               <option value="100G">100G</option>
               <option value="200G">200G</option>
               <option value="400G">400G</option>
+              <option value="800G">800G</option>
             </select>
             <button
               type="button"
