@@ -223,13 +223,13 @@ function FabricGraph({ data }) {
         
         if (isFirstOrLastLeaf) {
           // Always show link count label on first/last leaves, even if x1, with speed
-          linkLabel = `x${linksPerLeafPerSpine} ${uplinkSpeedLabel}`;
+          linkLabel = `${uplinkSpeedLabel} x${linksPerLeafPerSpine} `;
           
           // If this is the "..." spine (middle spine when spineCount > 3), multiply by hidden spine count
           if (spineCount > maxSpinesToShow && spineIndex === 1) {
             const hiddenSpineCount = spineCount - 2; // Total spines minus first and last shown
             const totalLinksToHiddenSpines = linksPerLeafPerSpine * hiddenSpineCount;
-            linkLabel = `x${totalLinksToHiddenSpines} ${uplinkSpeedLabel}`;
+            linkLabel = `x${totalLinksToHiddenSpines}`;
           }
         }
         
@@ -727,8 +727,9 @@ function FabricGraph({ data }) {
               linkCount = linksPerLeafPerSpine * hiddenSpineCount;
             }
             
-            slide.addText(`x${linkCount} ${uplinkSpeedLabel}`, {
-              x: midX - 0.25, y: midY - 0.1, w: 0.5, h: 0.2,
+            const labelText = isEllipsisSpine ? `x${linkCount}` : `${uplinkSpeedLabel} x${linkCount} `;
+            slide.addText(labelText, {
+              x: midX - 0.25, y: midY - 0.1, w: 0.6, h: 0.2,
               fontSize: 8, bold: true, color: '333333',
               align: 'center', valign: 'middle',
               fill: { color: 'FFFFFF' },
@@ -761,7 +762,6 @@ function FabricGraph({ data }) {
       await pptx.writeFile({ fileName: filename });
       
       console.log(`Editable PowerPoint presentation saved as: ${filename}`);
-      alert(`Editable PowerPoint presentation exported successfully as: ${filename}\\n\\nAll network elements are now editable PowerPoint shapes!`);
     } catch (error) {
       console.error('Detailed error exporting to PowerPoint:', error);
       console.error('Error stack:', error.stack);
