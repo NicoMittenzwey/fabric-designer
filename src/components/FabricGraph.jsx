@@ -795,7 +795,11 @@ function FabricGraph({ data }) {
       <div style={{ marginBottom: '8px' }}>
         {data?.topology && (
           <div>
-            <strong>Topology:</strong> {data.topology.type} | Leaves: {data.topology.leafCount} | Spines: {data.topology.spineCount} | Uplinks/Leaf: {data.topology.uplinksPerLeaf} | Links Leaf↔Spine: {data.topology.linksPerLeafPerSpine} | Downlinks/Leaf: {data.topology.downlinksPerLeaf}
+            <strong>Topology:</strong> {data.topology.type} | Leaves: {data.topology.leafCount} | Spines: {data.topology.spineCount} | Uplinks/Leaf: {data.topology.uplinksPerLeaf} | Downlinks/Leaf: {data.topology.downlinksPerLeaf} | Blocking: {(() => {
+              const uplinks = data.topology.uplinksPerLeaf || 0;
+              const downlinks = data.topology.downlinksPerLeaf || 0;
+              return data.topology.blockingType === 'non-blocking' ? 'Fully Non-Blocking' : (uplinks > 0 ? `1:${(downlinks / uplinks).toFixed(2)}` : 'N/A');
+            })()}
           </div>
         )}
       </div>

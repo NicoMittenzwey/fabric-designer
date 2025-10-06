@@ -162,7 +162,8 @@ function InputForm({ setFabricData }) {
 
     // Corner Case 1: Check if endpoints fit in a single leaf switch (no fabric needed)
     if (requiredDownlinkPortsTotal <= remainingDownlinkPorts) {
-      alert(`All ${getTotalEndpoints()} endpoints fit in a single ${leafModel.model} switch (${remainingDownlinkPorts} downlink ports available).\n\nNo fabric required - use a single switch instead.`);
+      const downlinkSpeed = portSpec?.max_speed_gbps ? `${portSpec.max_speed_gbps}G` : 'N/A';
+      alert(`All ${getTotalEndpoints()} endpoints fit in a single ${leafModel.model} switch (${remainingDownlinkPorts} ${downlinkSpeed} downlink ports available).\n\nNo fabric required - use a single switch instead.`);
       return;
     }
 
@@ -349,7 +350,12 @@ function InputForm({ setFabricData }) {
             checked={blockingType === 'blocking'}
             onChange={() => setBlockingType('blocking')}
           />
-          Custom uplinks per leaf:
+          {(() => {
+            const uplinkCount = customUplinksPerLeaf || 0;
+            const downlinkCount = Math.max(0, getTotalFrontPanelPorts(switches[leafModelIndex]) - uplinkCount);
+            const ratio = uplinkCount > 0 ? `1:${(downlinkCount / uplinkCount).toFixed(2)}` : 'N/A';
+            return `Custom uplinks per leaf (${ratio} blocking):`;
+          })()}
           <input
             type="number"
             min="1"
@@ -359,6 +365,67 @@ function InputForm({ setFabricData }) {
             style={{ marginLeft: '10px', width: '60px' }}
           />
         </label>
+      </div>
+
+      {/* Switch Specifications Display */}
+      <div style={{ marginTop: '20px', padding: '15px', backgroundColor: '#f5f5f5', borderRadius: '5px' }}>
+        <h4 style={{ marginTop: 0, marginBottom: '15px' }}>Switch Specifications</h4>
+
+        <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap' }}>
+          {/* Leaf Switch Info */}
+          <div style={{ flex: 1, minWidth: '250px' }}>
+            <h5 style={{ marginTop: 0, marginBottom: '10px', color: '#2F5496' }}>Leaf Switch ({switches[leafModelIndex]?.model})</h5>
+            <div style={{ fontSize: '14px', lineHeight: '1.5' }}>
+              <div><strong>Total Ports:</strong> {getTotalFrontPanelPorts(switches[leafModelIndex])}</div>
+              <div><strong>Technology:</strong> {switches[leafModelIndex]?.technology}</div>
+              {switches[leafModelIndex]?.ports?.map((port, idx) => (
+                <div key={idx} style={{ marginLeft: '10px' }}>
+                  • {port.count} × {port.port_type} ({port.max_speed_gbps}G max)
+                  {port.split_support && port.split_support.length > 1 && (
+                    <div style={{ marginLeft: '10px', fontSize: '13px', color: '#666' }}>
+                      {port.split_support.map((split, splitIdx) => {
+                        const speed = port.max_speed_gbps / split;
+                        const endpointCount = port.count * split;
+                        return (
+                          <div key={splitIdx}>
+                            - {speed}G ({endpointCount} endpoints)
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Spine Switch Info */}
+          <div style={{ flex: 1, minWidth: '250px' }}>
+            <h5 style={{ marginTop: 0, marginBottom: '10px', color: '#2F5496' }}>Spine Switch ({switches[spineModelIndex]?.model})</h5>
+            <div style={{ fontSize: '14px', lineHeight: '1.5' }}>
+              <div><strong>Total Ports:</strong> {getTotalFrontPanelPorts(switches[spineModelIndex])}</div>
+              <div><strong>Technology:</strong> {switches[spineModelIndex]?.technology}</div>
+              {switches[spineModelIndex]?.ports?.map((port, idx) => (
+                <div key={idx} style={{ marginLeft: '10px' }}>
+                  • {port.count} × {port.port_type} ({port.max_speed_gbps}G max)
+                  {port.split_support && port.split_support.length > 1 && (
+                    <div style={{ marginLeft: '10px', fontSize: '13px', color: '#666' }}>
+                      {port.split_support.map((split, splitIdx) => {
+                        const speed = port.max_speed_gbps / split;
+                        const endpointCount = port.count * split;
+                        return (
+                          <div key={splitIdx}>
+                            - {speed}G ({endpointCount} endpoints)
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
 
       <h4 style={{ marginTop: '20px' }}>Endpoint Distribution</h4>

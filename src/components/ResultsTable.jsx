@@ -44,7 +44,11 @@ function ResultsTable({ data }) {
             <td>{spineModel?.model || '—'}</td>
             <td>{spineModel?.technology || '—'}</td>
             <td>{topo.spineCount || 0}</td>
-            <td colSpan={2}>{topo.blockingType === 'non-blocking' ? 'Fully Non-Blocking' : 'Custom Blocking'}</td>
+            <td colSpan={2}>{topo.blockingType === 'non-blocking' ? 'Fully Non-Blocking' : (() => {
+              const uplinks = topo.uplinksPerLeaf || 0;
+              const downlinks = topo.downlinksPerLeaf || 0;
+              return uplinks > 0 ? `1:${(downlinks / uplinks).toFixed(2)} Blocking` : 'Custom Blocking';
+            })()}</td>
           </tr>
         </tbody>
       </table>

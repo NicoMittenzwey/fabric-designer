@@ -58,8 +58,8 @@
         "lanes": 8,
         "lane_speed_gbps": 200,
         "max_speed_gbps": 1600,
-        "split_support": [1, 2, 4],
-        "notes": "Each OSFP 1600G port can run as 1x1600G, 2x800G, or 4x400G."
+        "split_support": [1,2],
+        "notes": "Each OSFP 1600G port can run as 1x1600G, 2x800G"
       }
     ]
   }
