@@ -8,6 +8,47 @@ function ResultsTable({ data }) {
 
   const totalEndpoints = data?.totalEndpoints || perLeaf.reduce((s, l) => s + (l.endpointCount || 0), 0);
 
+  // Calculate cable information
+  const calculateCableInfo = () => {
+    const uplinkCables = topo.leafCount * topo.uplinksPerLeaf;
+
+    // Get uplink speed from spine port spec
+    const uplinkSpeed = spineModel?.ports?.[0]?.max_speed_gbps || 'N/A';
+
+    // Group downlink cables by speed
+    const downlinkCableGroups = {};
+
+    perLeaf.forEach(leaf => {
+      if (leaf.splitConfigurations) {
+        Object.entries(leaf.splitConfigurations).forEach(([speed, config]) => {
+          const splitFactor = config.splitFactor;
+          const cableCount = config.cableCount;
+
+          // Calculate the actual cable speed (port speed / split factor)
+          // We need the port spec to get max_speed_gbps
+          if (leafModel?.ports?.[0]?.max_speed_gbps) {
+            const cableSpeed = leafModel.ports[0].max_speed_gbps / splitFactor;
+
+            if (!downlinkCableGroups[cableSpeed]) {
+              downlinkCableGroups[cableSpeed] = {
+                speed: cableSpeed,
+                splitFactor: splitFactor,
+                totalCables: 0,
+                endpointSpeed: speed,
+                portSpeed: leafModel.ports[0].max_speed_gbps
+              };
+            }
+            downlinkCableGroups[cableSpeed].totalCables += cableCount;
+          }
+        });
+      }
+    });
+
+    return { uplinkCables, uplinkSpeed, downlinkCableGroups };
+  };
+
+  const { uplinkCables, uplinkSpeed, downlinkCableGroups } = calculateCableInfo();
+
   const renderEndpointBreakdown = (counts) => {
     if (!counts) return null;
     return Object.entries(counts).map(([speed, count]) => (
@@ -50,6 +91,37 @@ function ResultsTable({ data }) {
               return uplinks > 0 ? `1:${(downlinks / uplinks).toFixed(2)} Blocking` : 'Custom Blocking';
             })()}</td>
           </tr>
+        </tbody>
+      </table>
+
+      {/* Cable Information Table */}
+      <h3>Cable Summary</h3>
+      <table border="1" cellPadding="5" style={{ marginBottom: '12px' }}>
+        <thead>
+          <tr>
+            <th>Cable Type</th>
+            <th>Total Cables</th>
+            <th>Speed / Configuration</th>
+            <th>Split Factor</th>
+            <th>Endpoint Speed</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Uplink Cables</strong></td>
+            <td>{uplinkCables}</td>
+            <td>{uplinkSpeed}G</td>
+            <td colSpan={2}>Leaf to Spine connections</td>
+          </tr>
+          {Object.entries(downlinkCableGroups).map(([cableSpeed, info]) => (
+            <tr key={cableSpeed}>
+              <td><strong>Downlink Cables</strong></td>
+              <td>{info.totalCables}</td>
+              <td>{info.portSpeed}G → {info.splitFactor}× {info.endpointSpeed}</td>
+              <td>{info.splitFactor}×</td>
+              <td>{info.endpointSpeed}</td>
+            </tr>
+          ))}
         </tbody>
       </table>
 

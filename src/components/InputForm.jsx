@@ -62,29 +62,36 @@ function InputForm({ setFabricData }) {
     endpointGroups.forEach(g => {
       for (let i = 0; i < (g.count || 0); i++) allEndpoints.push(g.speed);
     });
-    
-    const perLeaf = Array.from({ length: leafCount }, () => ({ endpointCount: 0, endpointCounts: {}, portsUsed: 0 }));
+
+    const perLeaf = Array.from({ length: leafCount }, () => ({ endpointCount: 0, endpointCounts: {}, portsUsed: 0, splitConfigurations: {} }));
     const portSpec = getLeafPrimaryPortSpec(leafModel);
-    
+
     if (distributionMethod === 'fill') {
       // Fill First: Pack endpoints into leaf switches sequentially, considering port capacity
       let currentLeaf = 0;
-      
+
       allEndpoints.forEach(speed => {
         const speedGbps = parseSpeedGbps(speed);
         const endpointsPerPort = capacityPerPortForSpeed(portSpec, speedGbps);
-        
+
         // Calculate how many physical ports this endpoint would need
         const portsNeeded = 1 / endpointsPerPort; // e.g., 400G on 800G port with 2x split = 0.5 ports
-        
+
         // Check if current leaf has physical port capacity for one more endpoint
         if (perLeaf[currentLeaf].portsUsed + portsNeeded > remainingDownlinkPorts && currentLeaf < leafCount - 1) {
           currentLeaf++;
         }
-        
+
         perLeaf[currentLeaf].endpointCount += 1;
         perLeaf[currentLeaf].endpointCounts[speed] = (perLeaf[currentLeaf].endpointCounts[speed] || 0) + 1;
         perLeaf[currentLeaf].portsUsed += portsNeeded;
+
+        // Track split configuration (the endpointsPerPort tells us the split factor)
+        const splitFactor = endpointsPerPort;
+        if (!perLeaf[currentLeaf].splitConfigurations[speed]) {
+          perLeaf[currentLeaf].splitConfigurations[speed] = { splitFactor, cableCount: 0 };
+        }
+        perLeaf[currentLeaf].splitConfigurations[speed].cableCount += 1;
       });
     } else {
       // Spread Evenly: Round-robin distribution (default behavior)
@@ -94,18 +101,26 @@ function InputForm({ setFabricData }) {
         const speedGbps = parseSpeedGbps(speed);
         const endpointsPerPort = capacityPerPortForSpeed(portSpec, speedGbps);
         const portsNeeded = 1 / endpointsPerPort;
-        
+
         perLeaf[leafIdx].endpointCount += 1;
         perLeaf[leafIdx].endpointCounts[speed] = (perLeaf[leafIdx].endpointCounts[speed] || 0) + 1;
         perLeaf[leafIdx].portsUsed = (perLeaf[leafIdx].portsUsed || 0) + portsNeeded;
         idx++;
+
+        // Track split configuration
+        const splitFactor = endpointsPerPort;
+        if (!perLeaf[leafIdx].splitConfigurations[speed]) {
+          perLeaf[leafIdx].splitConfigurations[speed] = { splitFactor, cableCount: 0 };
+        }
+        perLeaf[leafIdx].splitConfigurations[speed].cableCount += 1;
       });
     }
-    
+
     // Remove portsUsed from final result (internal tracking only)
     return perLeaf.map(leaf => ({
       endpointCount: leaf.endpointCount,
-      endpointCounts: leaf.endpointCounts
+      endpointCounts: leaf.endpointCounts,
+      splitConfigurations: leaf.splitConfigurations
     }));
   };
 
