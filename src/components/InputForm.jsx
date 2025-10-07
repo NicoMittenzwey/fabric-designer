@@ -161,9 +161,9 @@ function InputForm({ setFabricData }) {
     }
 
     // Corner Case 1: Check if endpoints fit in a single leaf switch (no fabric needed)
-    if (requiredDownlinkPortsTotal <= remainingDownlinkPorts) {
+    if (requiredDownlinkPortsTotal <= leafPorts) {
       const downlinkSpeed = portSpec?.max_speed_gbps ? `${portSpec.max_speed_gbps}G` : 'N/A';
-      alert(`All ${getTotalEndpoints()} endpoints fit in a single ${leafModel.model} switch (${remainingDownlinkPorts} ${downlinkSpeed} downlink ports available).\n\nNo fabric required - use a single switch instead.`);
+      alert(`All ${getTotalEndpoints()} endpoints fit in a single ${leafModel.model} switch (${leafPorts}x ${downlinkSpeed} downlink ports available).\n\nNo fabric required - use a single switch instead.`);
       return;
     }
 
@@ -380,7 +380,7 @@ function InputForm({ setFabricData }) {
               <div><strong>Technology:</strong> {switches[leafModelIndex]?.technology}</div>
               {switches[leafModelIndex]?.ports?.map((port, idx) => (
                 <div key={idx} style={{ marginLeft: '10px' }}>
-                  • {port.count} × {port.port_type} ({port.max_speed_gbps}G max)
+                  • {port.count} × {port.port_type} ({port.max_speed_gbps}G)
                   {port.split_support && port.split_support.length > 1 && (
                     <div style={{ marginLeft: '10px', fontSize: '13px', color: '#666' }}>
                       {port.split_support.map((split, splitIdx) => {
@@ -407,7 +407,7 @@ function InputForm({ setFabricData }) {
               <div><strong>Technology:</strong> {switches[spineModelIndex]?.technology}</div>
               {switches[spineModelIndex]?.ports?.map((port, idx) => (
                 <div key={idx} style={{ marginLeft: '10px' }}>
-                  • {port.count} × {port.port_type} ({port.max_speed_gbps}G max)
+                  • {port.count} × {port.port_type} ({port.max_speed_gbps}G)
                   {port.split_support && port.split_support.length > 1 && (
                     <div style={{ marginLeft: '10px', fontSize: '13px', color: '#666' }}>
                       {port.split_support.map((split, splitIdx) => {

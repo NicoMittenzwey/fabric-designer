@@ -6,7 +6,7 @@ import FabricGraph from './components/FabricGraph.jsx';
 function App() {
   const [fabricData, setFabricData] = useState(null);
   // Resizable left panel width (System Config / Results)
-  const [leftWidth, setLeftWidth] = useState(420);
+  const [leftWidth, setLeftWidth] = useState(700);
   const [isResizing, setIsResizing] = useState(false);
   const startXRef = useRef(0);
   const startWidthRef = useRef(0);
@@ -72,7 +72,7 @@ function App() {
           {/* Input form - fixed height */}
           <div style={{ 
             minHeight: 0, 
-            maxHeight: '50%',
+            maxHeight: '75%',
             overflowY: 'auto',
             flexShrink: 0
           }}>
