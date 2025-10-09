@@ -12,6 +12,9 @@ function ResultsTable({ data }) {
   const calculateCableInfo = () => {
     const uplinkCables = topo.leafCount * topo.uplinksPerLeaf;
 
+    // Get uplink speed from spine port spec
+    const uplinkSpeed = spineModel?.ports?.[0]?.max_speed_gbps || 'N/A';
+
     // Group downlink cables by speed
     const downlinkCableGroups = {};
 
@@ -31,7 +34,8 @@ function ResultsTable({ data }) {
                 speed: cableSpeed,
                 splitFactor: splitFactor,
                 totalCables: 0,
-                endpointSpeed: speed
+                endpointSpeed: speed,
+                portSpeed: leafModel.ports[0].max_speed_gbps
               };
             }
             downlinkCableGroups[cableSpeed].totalCables += cableCount;
@@ -40,10 +44,10 @@ function ResultsTable({ data }) {
       }
     });
 
-    return { uplinkCables, downlinkCableGroups };
+    return { uplinkCables, uplinkSpeed, downlinkCableGroups };
   };
 
-  const { uplinkCables, downlinkCableGroups } = calculateCableInfo();
+  const { uplinkCables, uplinkSpeed, downlinkCableGroups } = calculateCableInfo();
 
   const renderEndpointBreakdown = (counts) => {
     if (!counts) return null;
@@ -97,7 +101,7 @@ function ResultsTable({ data }) {
           <tr>
             <th>Cable Type</th>
             <th>Total Cables</th>
-            <th>Speed</th>
+            <th>Speed / Configuration</th>
             <th>Split Factor</th>
             <th>Endpoint Speed</th>
           </tr>
@@ -106,13 +110,14 @@ function ResultsTable({ data }) {
           <tr>
             <td><strong>Uplink Cables</strong></td>
             <td>{uplinkCables}</td>
-            <td colSpan={3}>Leaf to Spine connections</td>
+            <td>{uplinkSpeed}G</td>
+            <td colSpan={2}>Leaf to Spine connections</td>
           </tr>
           {Object.entries(downlinkCableGroups).map(([cableSpeed, info]) => (
             <tr key={cableSpeed}>
               <td><strong>Downlink Cables</strong></td>
               <td>{info.totalCables}</td>
-              <td>{cableSpeed}G</td>
+              <td>{info.portSpeed}G → {info.splitFactor}× {info.endpointSpeed}</td>
               <td>{info.splitFactor}×</td>
               <td>{info.endpointSpeed}</td>
             </tr>
