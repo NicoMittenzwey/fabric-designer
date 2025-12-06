@@ -8,6 +8,8 @@ function InputForm({ setFabricData }) {
   const [blockingType, setBlockingType] = useState('non-blocking'); // 'non-blocking' | 'blocking'
   const [customUplinksPerLeaf, setCustomUplinksPerLeaf] = useState(0);
   const [distributionMethod, setDistributionMethod] = useState('spread'); // 'spread' | 'fill'
+  const [leafColor, setLeafColor] = useState('#4CAF50');
+  const [spineColor, setSpineColor] = useState('#2196F3');
 
   const getTotalFrontPanelPorts = (sw) => {
     if (!sw || !Array.isArray(sw.ports)) return 0;
@@ -38,7 +40,7 @@ function InputForm({ setFabricData }) {
   const addEndpointGroup = () => {
     setEndpointGroups([
       ...endpointGroups,
-      { count: 1, speed: '100G' }
+      { count: 1, speed: '100G', name: `Group ${endpointGroups.length + 1}`, color: '#FF9800' }
     ]);
   };
 
@@ -57,71 +59,84 @@ function InputForm({ setFabricData }) {
   const getTotalEndpoints = () => endpointGroups.reduce((sum, g) => sum + (g.count || 0), 0);
 
   const distributeEndpointsAcrossLeaves = (leafCount, remainingDownlinkPorts, leafModel) => {
-    // Flatten endpoints preserving speed
+    // Flatten endpoints preserving speed and name
     const allEndpoints = [];
     endpointGroups.forEach(g => {
-      for (let i = 0; i < (g.count || 0); i++) allEndpoints.push(g.speed);
+      for (let i = 0; i < (g.count || 0); i++) {
+        allEndpoints.push({ speed: g.speed, name: g.name || 'Group', color: g.color || '#FF9800' });
+      }
     });
 
-    const perLeaf = Array.from({ length: leafCount }, () => ({ endpointCount: 0, endpointCounts: {}, portsUsed: 0, splitConfigurations: {} }));
+    const perLeaf = Array.from({ length: leafCount }, () => ({
+      endpointCount: 0,
+      endpointCounts: {},
+      groupedEndpoints: [], // New: track by name/speed
+      portsUsed: 0,
+      splitConfigurations: {}
+    }));
     const portSpec = getLeafPrimaryPortSpec(leafModel);
 
     if (distributionMethod === 'fill') {
-      // Fill First: Pack endpoints into leaf switches sequentially, considering port capacity
+      // Fill First: Pack endpoints into leaf switches sequentially
       let currentLeaf = 0;
 
-      allEndpoints.forEach(speed => {
-        const speedGbps = parseSpeedGbps(speed);
+      allEndpoints.forEach(ep => {
+        const speedGbps = parseSpeedGbps(ep.speed);
         const endpointsPerPort = capacityPerPortForSpeed(portSpec, speedGbps);
+        const portsNeeded = 1 / endpointsPerPort;
 
-        // Calculate how many physical ports this endpoint would need
-        const portsNeeded = 1 / endpointsPerPort; // e.g., 400G on 800G port with 2x split = 0.5 ports
-
-        // Check if current leaf has physical port capacity for one more endpoint
         if (perLeaf[currentLeaf].portsUsed + portsNeeded > remainingDownlinkPorts && currentLeaf < leafCount - 1) {
           currentLeaf++;
         }
 
         perLeaf[currentLeaf].endpointCount += 1;
-        perLeaf[currentLeaf].endpointCounts[speed] = (perLeaf[currentLeaf].endpointCounts[speed] || 0) + 1;
+        perLeaf[currentLeaf].endpointCounts[ep.speed] = (perLeaf[currentLeaf].endpointCounts[ep.speed] || 0) + 1;
+        perLeaf[currentLeaf].groupedEndpoints.push(ep);
         perLeaf[currentLeaf].portsUsed += portsNeeded;
 
-        // Track split configuration (the endpointsPerPort tells us the split factor)
         const splitFactor = endpointsPerPort;
-        if (!perLeaf[currentLeaf].splitConfigurations[speed]) {
-          perLeaf[currentLeaf].splitConfigurations[speed] = { splitFactor, cableCount: 0 };
+        if (!perLeaf[currentLeaf].splitConfigurations[ep.speed]) {
+          perLeaf[currentLeaf].splitConfigurations[ep.speed] = { splitFactor, cableCount: 0 };
         }
-        perLeaf[currentLeaf].splitConfigurations[speed].cableCount += 1;
+        perLeaf[currentLeaf].splitConfigurations[ep.speed].cableCount += 1;
       });
     } else {
-      // Spread Evenly: Round-robin distribution (default behavior)
+      // Spread Evenly: Round-robin distribution
       let idx = 0;
-      allEndpoints.forEach(speed => {
+      allEndpoints.forEach(ep => {
         const leafIdx = idx % leafCount;
-        const speedGbps = parseSpeedGbps(speed);
+        const speedGbps = parseSpeedGbps(ep.speed);
         const endpointsPerPort = capacityPerPortForSpeed(portSpec, speedGbps);
         const portsNeeded = 1 / endpointsPerPort;
 
         perLeaf[leafIdx].endpointCount += 1;
-        perLeaf[leafIdx].endpointCounts[speed] = (perLeaf[leafIdx].endpointCounts[speed] || 0) + 1;
+        perLeaf[leafIdx].endpointCounts[ep.speed] = (perLeaf[leafIdx].endpointCounts[ep.speed] || 0) + 1;
+        perLeaf[leafIdx].groupedEndpoints.push(ep);
         perLeaf[leafIdx].portsUsed = (perLeaf[leafIdx].portsUsed || 0) + portsNeeded;
         idx++;
 
-        // Track split configuration
         const splitFactor = endpointsPerPort;
-        if (!perLeaf[leafIdx].splitConfigurations[speed]) {
-          perLeaf[leafIdx].splitConfigurations[speed] = { splitFactor, cableCount: 0 };
+        if (!perLeaf[leafIdx].splitConfigurations[ep.speed]) {
+          perLeaf[leafIdx].splitConfigurations[ep.speed] = { splitFactor, cableCount: 0 };
         }
-        perLeaf[leafIdx].splitConfigurations[speed].cableCount += 1;
+        perLeaf[leafIdx].splitConfigurations[ep.speed].cableCount += 1;
       });
     }
 
-    // Remove portsUsed from final result (internal tracking only)
-    return perLeaf.map(leaf => ({
-      endpointCount: leaf.endpointCount,
-      endpointCounts: leaf.endpointCounts,
-      splitConfigurations: leaf.splitConfigurations
-    }));
+    // Aggregation step: condense groupedEndpoints (list of objects) into counts per group
+    perLeaf.forEach(leaf => {
+      const groups = {}; // Key: "Name|Speed"
+      leaf.groupedEndpoints.forEach(ep => {
+        const key = `${ep.name}|${ep.speed}`;
+        if (!groups[key]) groups[key] = { name: ep.name, speed: ep.speed, count: 0, color: ep.color };
+        groups[key].count++;
+      });
+      leaf.groupedEndpoints = Object.values(groups);
+      // Remove portsUsed 
+      delete leaf.portsUsed;
+    });
+
+    return perLeaf;
   };
 
   const pickSpineCount = (leafCount, uplinksPerLeaf, spinePorts) => {
@@ -192,7 +207,7 @@ function InputForm({ setFabricData }) {
     if (requiredPortsPerSpine > spinePorts) {
       const maxLeafCount = Math.floor(spinePorts / linksPerLeafPerSpine);
       const maxEndpoints = maxLeafCount * remainingDownlinkPorts;
-      
+
       alert(
         `⚠️ Fabric Configuration Exceeds Physical Limits\n\n` +
         `Current configuration requires:\n` +
@@ -228,7 +243,9 @@ function InputForm({ setFabricData }) {
         linksPerLeafPerSpine,
         downlinksPerLeaf: remainingDownlinkPorts,
         leafCount,
-        spineCount
+        spineCount,
+        leafColor,
+        spineColor
       },
       leaf: {
         model: leafModel,
@@ -258,6 +275,20 @@ function InputForm({ setFabricData }) {
         <h4>Endpoint Groups</h4>
         {endpointGroups.map((group, idx) => (
           <div key={idx} style={{ margin: '10px 0', display: 'flex', alignItems: 'center' }}>
+            <input
+              type="text"
+              placeholder="Group Name"
+              value={group.name || ''}
+              onChange={(e) => updateEndpointGroup(idx, 'name', e.target.value)}
+              style={{ width: '120px', marginRight: '10px' }}
+            />
+            <input
+              type="color"
+              value={group.color || '#FF9800'}
+              onChange={(e) => updateEndpointGroup(idx, 'color', e.target.value)}
+              style={{ width: '40px', height: '30px', padding: '0', marginRight: '10px', verticalAlign: 'middle', cursor: 'pointer', border: 'none', background: 'none' }}
+              title="Group Color"
+            />
             <input
               type="number"
               min="1"
@@ -320,6 +351,27 @@ function InputForm({ setFabricData }) {
       </div>
 
       <h3>Topology & Switch Models</h3>
+
+      <div style={{ marginBottom: '15px', display: 'flex', gap: '20px' }}>
+        <label style={{ display: 'flex', alignItems: 'center' }}>
+          <span style={{ marginRight: '8px' }}>Leaf Color:</span>
+          <input
+            type="color"
+            value={leafColor}
+            onChange={(e) => setLeafColor(e.target.value)}
+            style={{ width: '40px', height: '30px', padding: '0', border: 'none', background: 'none', cursor: 'pointer' }}
+          />
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center' }}>
+          <span style={{ marginRight: '8px' }}>Spine Color:</span>
+          <input
+            type="color"
+            value={spineColor}
+            onChange={(e) => setSpineColor(e.target.value)}
+            style={{ width: '40px', height: '30px', padding: '0', border: 'none', background: 'none', cursor: 'pointer' }}
+          />
+        </label>
+      </div>
 
       <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
         <label>

@@ -143,6 +143,8 @@ function ResultsTable({ data }) {
             <thead>
               <tr>
                 <th>Leaf</th>
+                <th>Uplinks</th>
+                <th>Downlinks</th>
                 <th>Total Endpoints</th>
                 <th>Breakdown</th>
               </tr>
@@ -151,8 +153,23 @@ function ResultsTable({ data }) {
               {perLeaf.map((leaf, i) => (
                 <tr key={i}>
                   <td>L{i + 1}</td>
+                  <td>{topo.uplinksPerLeaf || 0}</td>
+                  <td>
+                    {leaf.splitConfigurations ?
+                      Object.values(leaf.splitConfigurations).reduce((sum, c) => sum + c.cableCount, 0) :
+                      (leaf.endpointCount || 0) // Fallback if split config missing
+                    }
+                  </td>
                   <td>{leaf.endpointCount || 0}</td>
-                  <td>{renderEndpointBreakdown(leaf.endpointCounts)}</td>
+                  <td>
+                    {leaf.groupedEndpoints ? (
+                      leaf.groupedEndpoints.map((g, idx) => (
+                        <div key={idx}><strong>{g.name}</strong>: {g.count} × {g.speed}</div>
+                      ))
+                    ) : (
+                      renderEndpointBreakdown(leaf.endpointCounts)
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

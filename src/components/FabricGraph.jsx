@@ -17,6 +17,10 @@ function FabricGraph({ data }) {
     const spineCount = topology.spineCount || 0;
     const perLeaf = distribution?.perLeaf || [];
 
+    // Default colors if not present
+    const spineColor = topology.spineColor || '#CDE7FF';
+    const leafColor = topology.leafColor || '#D2E5FF';
+
     const nodes = [];
     const edges = [];
     let nodeId = 1;
@@ -24,7 +28,7 @@ function FabricGraph({ data }) {
     // Spines (top layer) - show first 1, last 1, and "..." if more than 3
     const spineIds = [];
     const maxSpinesToShow = 3;
-    
+
     if (spineCount <= maxSpinesToShow) {
       // Show all spines
       for (let i = 0; i < spineCount; i++) {
@@ -35,7 +39,7 @@ function FabricGraph({ data }) {
           label: `Spine ${i + 1}\n${spine?.model?.model || ''}`,
           group: 'spine',
           shape: 'box',
-          color: '#CDE7FF',
+          color: spineColor,
           font: { size: 18 }
         });
       }
@@ -49,11 +53,11 @@ function FabricGraph({ data }) {
           label: `Spine ${i + 1}\n${spine?.model?.model || ''}`,
           group: 'spine',
           shape: 'box',
-          color: '#CDE7FF',
+          color: spineColor,
           font: { size: 18 }
         });
       }
-      
+
       // Add "..." placeholder
       const ellipsisId = nodeId++;
       spineIds.push(ellipsisId);
@@ -65,7 +69,7 @@ function FabricGraph({ data }) {
         color: '#E8E8E8',
         font: { size: 16 }
       });
-      
+
       // Show last 1 spine
       for (let i = spineCount - 1; i < spineCount; i++) {
         const id = nodeId++;
@@ -75,7 +79,7 @@ function FabricGraph({ data }) {
           label: `Spine ${i + 1}\n${spine?.model?.model || ''}`,
           group: 'spine',
           shape: 'box',
-          color: '#CDE7FF',
+          color: spineColor,
           font: { size: 18 }
         });
       }
@@ -84,7 +88,7 @@ function FabricGraph({ data }) {
     // Leaves (middle layer) and endpoints (bottom) - show first 2, last 2, and "..." if more than 5
     const leafIds = [];
     const maxLeavesToShow = 5;
-    
+
     if (leafCount <= maxLeavesToShow) {
       // Show all leaves
       for (let l = 0; l < leafCount; l++) {
@@ -95,28 +99,54 @@ function FabricGraph({ data }) {
           label: `Leaf ${l + 1}\n${leaf?.model?.model || ''}`,
           group: 'leaf',
           shape: 'box',
-          color: '#D2E5FF',
+          color: leafColor,
           font: { size: 18 }
         });
 
-        const thisLeaf = perLeaf[l] || { endpointCount: 0, endpointCounts: {} };
+        const thisLeaf = perLeaf[l] || { endpointCount: 0, endpointCounts: {}, groupedEndpoints: [] };
         const endpointCounts = thisLeaf.endpointCounts || {};
+        const groupedEndpoints = thisLeaf.groupedEndpoints;
 
-        // Create one endpoint node per speed group: label like "100G xN"
-        Object.entries(endpointCounts).forEach(([speed, count]) => {
-          const epGroupId = nodeId++;
-          nodes.push({
-            id: epGroupId,
-            label: `${speed} x${count}`,
-            group: 'endpoint',
-            shape: 'dot',
-            color: '#FFD2D2',
-            size: 12,
-            font: { size: 18 }
+        if (groupedEndpoints && groupedEndpoints.length > 0) {
+          groupedEndpoints.forEach((g) => {
+            const epGroupId = nodeId++;
+            nodes.push({
+              id: epGroupId,
+              label: `${g.name}`,
+              group: 'endpoint',
+              shape: 'dot',
+              color: g.color || '#FFD2D2',
+              size: 12,
+              font: { size: 14 }
+            });
+            edges.push({
+              from: epGroupId,
+              to: leafId,
+              label: `${g.speed} x${g.count}`,
+              font: { size: 18, align: 'horizontal', background: 'white' }
+            });
           });
-          // Connect grouped endpoint to leaf
-          edges.push({ from: epGroupId, to: leafId });
-        });
+        } else {
+          // Fallback for old data or if groupedEndpoints missing
+          Object.entries(endpointCounts).forEach(([speed, count]) => {
+            const epGroupId = nodeId++;
+            nodes.push({
+              id: epGroupId,
+              label: `${speed} x${count}`,
+              group: 'endpoint',
+              shape: 'dot',
+              color: '#FFD2D2',
+              size: 12,
+              font: { size: 18 }
+            });
+            edges.push({
+              from: epGroupId,
+              to: leafId,
+              label: `${speed} x${count}`,
+              font: { size: 18, align: 'horizontal', background: 'white' }
+            });
+          });
+        }
       }
     } else {
       // Show first 2 leaves
@@ -128,28 +158,55 @@ function FabricGraph({ data }) {
           label: `Leaf ${l + 1}\n${leaf?.model?.model || ''}`,
           group: 'leaf',
           shape: 'box',
-          color: '#D2E5FF',
+          color: leafColor,
           font: { size: 18 }
         });
 
-        const thisLeaf = perLeaf[l] || { endpointCount: 0, endpointCounts: {} };
+        const thisLeaf = perLeaf[l] || { endpointCount: 0, endpointCounts: {}, groupedEndpoints: [] };
         const endpointCounts = thisLeaf.endpointCounts || {};
+        const groupedEndpoints = thisLeaf.groupedEndpoints;
 
-        Object.entries(endpointCounts).forEach(([speed, count]) => {
-          const epGroupId = nodeId++;
-          nodes.push({
-            id: epGroupId,
-            label: `${speed} x${count}`,
-            group: 'endpoint',
-            shape: 'dot',
-            color: '#FFD2D2',
-            size: 12,
-            font: { size: 18 }
+        if (groupedEndpoints && groupedEndpoints.length > 0) {
+          groupedEndpoints.forEach((g) => {
+            const epGroupId = nodeId++;
+            nodes.push({
+              id: epGroupId,
+              label: `${g.name}`,
+              group: 'endpoint',
+              shape: 'dot',
+              color: g.color || '#FFD2D2',
+              size: 12,
+              font: { size: 14 }
+            });
+            edges.push({
+              from: epGroupId,
+              to: leafId,
+              label: `${g.speed} x${g.count}`,
+              font: { size: 18, align: 'horizontal', background: 'white' }
+            });
           });
-          edges.push({ from: epGroupId, to: leafId });
-        });
+        } else {
+          Object.entries(endpointCounts).forEach(([speed, count]) => {
+            const epGroupId = nodeId++;
+            nodes.push({
+              id: epGroupId,
+              label: `${speed} x${count}`,
+              group: 'endpoint',
+              shape: 'dot',
+              color: '#FFD2D2',
+              size: 12,
+              font: { size: 18 }
+            });
+            edges.push({
+              from: epGroupId,
+              to: leafId,
+              label: `${speed} x${count}`,
+              font: { size: 18, align: 'horizontal', background: 'white' }
+            });
+          });
+        }
       }
-      
+
       // Add "..." placeholder for leaves
       const leafEllipsisId = nodeId++;
       leafIds.push(leafEllipsisId);
@@ -161,7 +218,7 @@ function FabricGraph({ data }) {
         color: '#E8E8E8',
         font: { size: 16 }
       });
-      
+
       // Add "..." placeholder for endpoints under the middle leaf
       const epEllipsisId = nodeId++;
       nodes.push({
@@ -174,7 +231,7 @@ function FabricGraph({ data }) {
         font: { size: 14 }
       });
       edges.push({ from: epEllipsisId, to: leafEllipsisId });
-      
+
       // Show last 2 leaves
       for (let l = leafCount - 2; l < leafCount; l++) {
         const leafId = nodeId++;
@@ -184,47 +241,74 @@ function FabricGraph({ data }) {
           label: `Leaf ${l + 1}\n${leaf?.model?.model || ''}`,
           group: 'leaf',
           shape: 'box',
-          color: '#D2E5FF',
+          color: leafColor,
           font: { size: 18 }
         });
 
-        const thisLeaf = perLeaf[l] || { endpointCount: 0, endpointCounts: {} };
+        const thisLeaf = perLeaf[l] || { endpointCount: 0, endpointCounts: {}, groupedEndpoints: [] };
         const endpointCounts = thisLeaf.endpointCounts || {};
+        const groupedEndpoints = thisLeaf.groupedEndpoints;
 
-        Object.entries(endpointCounts).forEach(([speed, count]) => {
-          const epGroupId = nodeId++;
-          nodes.push({
-            id: epGroupId,
-            label: `${speed} x${count}`,
-            group: 'endpoint',
-            shape: 'dot',
-            color: '#FFD2D2',
-            size: 12,
-            font: { size: 18 }
+        if (groupedEndpoints && groupedEndpoints.length > 0) {
+          groupedEndpoints.forEach((g) => {
+            const epGroupId = nodeId++;
+            nodes.push({
+              id: epGroupId,
+              label: `${g.name}`,
+              group: 'endpoint',
+              shape: 'dot',
+              color: g.color || '#FFD2D2',
+              size: 12,
+              font: { size: 14 }
+            });
+            edges.push({
+              from: epGroupId,
+              to: leafId,
+              label: `${g.speed} x${g.count}`,
+              font: { size: 18, align: 'horizontal', background: 'white' }
+            });
           });
-          edges.push({ from: epGroupId, to: leafId });
-        });
+        } else {
+          Object.entries(endpointCounts).forEach(([speed, count]) => {
+            const epGroupId = nodeId++;
+            nodes.push({
+              id: epGroupId,
+              label: `${speed} x${count}`,
+              group: 'endpoint',
+              shape: 'dot',
+              color: '#FFD2D2',
+              size: 12,
+              font: { size: 18 }
+            });
+            edges.push({
+              from: epGroupId,
+              to: leafId,
+              label: `${speed} x${count}`,
+              font: { size: 18, align: 'horizontal', background: 'white' }
+            });
+          });
+        }
       }
     }
 
     // Leaf-to-Spine links: represent linksPerLeafPerSpine with an edge label
     const linksPerLeafPerSpine = topology.linksPerLeafPerSpine || 1;
-    
+
     // Get uplink speed from spine port spec
     const spinePortSpeed = spine?.model?.ports?.[0]?.max_speed_gbps || 0;
     const uplinkSpeedLabel = spinePortSpeed > 0 ? `${spinePortSpeed}G` : '';
-    
+
     leafIds.forEach((lid, leafIndex) => {
       spineIds.forEach((sid, spineIndex) => {
         let linkLabel = undefined;
-        
+
         // Only show link labels on first and last leaf switches
         const isFirstOrLastLeaf = leafIndex === 0 || leafIndex === leafIds.length - 1;
-        
+
         if (isFirstOrLastLeaf) {
           // Always show link count label on first/last leaves, even if x1, with speed
           linkLabel = `${uplinkSpeedLabel} x${linksPerLeafPerSpine} `;
-          
+
           // If this is the "..." spine (middle spine when spineCount > 3), multiply by hidden spine count
           if (spineCount > maxSpinesToShow && spineIndex === 1) {
             const hiddenSpineCount = spineCount - 2; // Total spines minus first and last shown
@@ -232,18 +316,18 @@ function FabricGraph({ data }) {
             linkLabel = `x${totalLinksToHiddenSpines}`;
           }
         }
-        
+
         // Determine if this edge should be highlighted (has link count label)
         const hasLinkCount = linkLabel !== undefined;
-        
-        edges.push({ 
-          from: lid, 
-          to: sid, 
+
+        edges.push({
+          from: lid,
+          to: sid,
           dashes: !hasLinkCount, // Solid line for edges with link counts, dashed for others
           color: { color: hasLinkCount ? '#333' : '#888' }, // Darker color for edges with link counts
           width: hasLinkCount ? 2 : 1, // Thicker line for edges with link counts
           label: linkLabel,
-          font: { vadjust: -10, size: 18 }
+          font: { size: 18, align: 'horizontal', background: 'white' }
         });
       });
     });
@@ -292,38 +376,38 @@ function FabricGraph({ data }) {
       try {
         networkRef.current.setSize('100%', '100%');
         networkRef.current.redraw();
-        
+
         // First fit to show all nodes
         networkRef.current.fit({ animation: false });
-        
+
         // Calculate center of mass of all nodes after layout
         setTimeout(() => {
           try {
             const positions = networkRef.current.getPositions();
             const nodeIds = Object.keys(positions);
-            
+
             if (nodeIds.length > 0) {
               let centerX = 0;
               let centerY = 0;
-              
+
               nodeIds.forEach(id => {
                 centerX += positions[id].x;
                 centerY += positions[id].y;
               });
-              
+
               centerX /= nodeIds.length;
               centerY /= nodeIds.length;
-              
+
               // Move view to center of mass
-              networkRef.current.moveTo({ 
-                position: { x: centerX, y: centerY }, 
+              networkRef.current.moveTo({
+                position: { x: centerX, y: centerY },
                 scale: networkRef.current.getScale(),
-                animation: false 
+                animation: false
               });
             }
-          } catch {}
+          } catch { }
         }, 200);
-      } catch {}
+      } catch { }
     };
 
     if (networkRef.current) {
@@ -352,7 +436,7 @@ function FabricGraph({ data }) {
 
     return () => {
       if (resizeObserverRef.current) {
-        try { resizeObserverRef.current.disconnect(); } catch {}
+        try { resizeObserverRef.current.disconnect(); } catch { }
         resizeObserverRef.current = null;
       }
       if (networkRef.current) {
@@ -368,30 +452,34 @@ function FabricGraph({ data }) {
       console.log('Export cancelled: missing container or data');
       return;
     }
-    
+
     setIsExporting(true);
     try {
       console.log('Starting PowerPoint export with native shapes...');
-      
+
       const { topology, leaf, spine, distribution } = data;
       const leafCount = topology.leafCount || 0;
       const spineCount = topology.spineCount || 0;
       const perLeaf = distribution?.perLeaf || [];
-      
+
+      // Default colors (strip # for pptxgenjs)
+      const spineColor = (topology.spineColor || '#CDE7FF').replace('#', '');
+      const leafColor = (topology.leafColor || '#D2E5FF').replace('#', '');
+
       // Create PowerPoint presentation
       const pptx = new pptxgen();
       console.log('PowerPoint instance created');
-      
+
       // Set presentation properties
       pptx.author = 'Fabric Designer';
       pptx.company = 'Network Design Tool';
       pptx.title = 'Fabric Topology';
       pptx.subject = 'Network Fabric Design';
-      
+
       // Add main slide with topology
       const slide = pptx.addSlide();
       console.log('Main slide created');
-      
+
       // Add title
       slide.addText('Fabric Topology', {
         x: 0.5, y: 0.2, w: 9, h: 0.6,
@@ -399,40 +487,40 @@ function FabricGraph({ data }) {
         align: 'center'
       });
       console.log('Title added');
-      
+
       // Calculate layout positions
       const slideWidth = 10;
       const slideHeight = 7.5;
       const startY = 1.2;
       const layerHeight = 1.5;
-      
+
       // Spine layer (top) - follow same logic as web visualization
       const spineY = startY;
       const maxSpinesToShow = 3; // Same as web version
-      
+
       console.log(`Creating spine switches (${spineCount} total, showing pattern)...`);
-      
+
       // Create spine switches following web visualization pattern
       const spinePositions = [];
       let spineSpacing, totalSpinesToDraw;
-      
+
       if (spineCount <= maxSpinesToShow) {
         // Show all spines
         totalSpinesToDraw = spineCount;
         spineSpacing = slideWidth / (totalSpinesToDraw + 1);
-        
+
         for (let i = 0; i < spineCount; i++) {
           const x = spineSpacing * (i + 1) - 0.6;
           spinePositions.push({ x, y: spineY });
-          
+
           // Add spine switch rectangle
           slide.addShape(pptx.ShapeType.rect, {
             x: x, y: spineY, w: 1.2, h: 0.8,
-            fill: { color: 'CDE7FF' },
+            fill: { color: spineColor },
             line: { color: '4472C4', width: 2 },
             shadow: { type: 'outer', blur: 3, offset: 2, angle: 45, color: '888888', opacity: 0.3 }
           });
-          
+
           // Add spine label
           slide.addText(`Spine ${i + 1}\n${spine?.model?.model || 'Switch'}`, {
             x: x, y: spineY + 0.1, w: 1.2, h: 0.6,
@@ -444,85 +532,85 @@ function FabricGraph({ data }) {
         // Show first 1, "...", last 1 (total 3 elements)
         totalSpinesToDraw = 3;
         spineSpacing = slideWidth / (totalSpinesToDraw + 1);
-        
+
         // First spine
         const firstX = spineSpacing * 1 - 0.6;
         spinePositions.push({ x: firstX, y: spineY });
-        
+
         slide.addShape(pptx.ShapeType.rect, {
           x: firstX, y: spineY, w: 1.2, h: 0.8,
-          fill: { color: 'CDE7FF' },
+          fill: { color: spineColor },
           line: { color: '4472C4', width: 2 },
           shadow: { type: 'outer', blur: 3, offset: 2, angle: 45, color: '888888', opacity: 0.3 }
         });
-        
+
         slide.addText(`Spine 1\n${spine?.model?.model || 'Switch'}`, {
           x: firstX, y: spineY + 0.1, w: 1.2, h: 0.6,
           fontSize: 10, bold: true, color: '1F4E79',
           align: 'center', valign: 'middle'
         });
-        
+
         // Ellipsis spine
         const ellipsisX = spineSpacing * 2 - 0.6;
         spinePositions.push({ x: ellipsisX, y: spineY });
-        
+
         slide.addShape(pptx.ShapeType.rect, {
           x: ellipsisX, y: spineY, w: 1.2, h: 0.8,
           fill: { color: 'E8E8E8' },
           line: { color: '888888', width: 1 }
         });
-        
+
         slide.addText(`...\n(${spineCount - 2} more)`, {
           x: ellipsisX, y: spineY + 0.1, w: 1.2, h: 0.6,
           fontSize: 9, color: '666666',
           align: 'center', valign: 'middle'
         });
-        
+
         // Last spine
         const lastX = spineSpacing * 3 - 0.6;
         spinePositions.push({ x: lastX, y: spineY });
-        
+
         slide.addShape(pptx.ShapeType.rect, {
           x: lastX, y: spineY, w: 1.2, h: 0.8,
-          fill: { color: 'CDE7FF' },
+          fill: { color: spineColor },
           line: { color: '4472C4', width: 2 },
           shadow: { type: 'outer', blur: 3, offset: 2, angle: 45, color: '888888', opacity: 0.3 }
         });
-        
+
         slide.addText(`Spine ${spineCount}\n${spine?.model?.model || 'Switch'}`, {
           x: lastX, y: spineY + 0.1, w: 1.2, h: 0.6,
           fontSize: 10, bold: true, color: '1F4E79',
           align: 'center', valign: 'middle'
         });
       }
-      
+
       // Leaf layer (middle) - follow same logic as web visualization
       const leafY = startY + layerHeight * 1.5;
       const maxLeavesToShow = 5; // Same as web version
-      
+
       console.log(`Creating leaf switches (${leafCount} total, showing pattern)...`);
-      
+
       // Create leaf switches following web visualization pattern
       const leafPositions = [];
       let leafSpacing, totalLeavesToDraw;
-      
+
       if (leafCount <= maxLeavesToShow) {
         // Show all leaves
         totalLeavesToDraw = leafCount;
         leafSpacing = slideWidth / (totalLeavesToDraw + 1);
-        
+
         for (let i = 0; i < leafCount; i++) {
           const x = leafSpacing * (i + 1) - 0.6;
           leafPositions.push({ x, y: leafY });
-          
+
           // Add leaf switch rectangle
           slide.addShape(pptx.ShapeType.rect, {
             x: x, y: leafY, w: 1.2, h: 0.8,
-            fill: { color: 'D2E5FF' },
+            fill: { color: leafColor },
             line: { color: '2F5496', width: 2 },
             shadow: { type: 'outer', blur: 3, offset: 2, angle: 45, color: '888888', opacity: 0.3 }
           });
-          
+
           // Add leaf label
           slide.addText(`Leaf ${i + 1}\n${leaf?.model?.model || 'Switch'}`, {
             x: x, y: leafY + 0.1, w: 1.2, h: 0.6,
@@ -534,55 +622,55 @@ function FabricGraph({ data }) {
         // Show first 2, "...", last 2 (total 5 elements)
         totalLeavesToDraw = 5;
         leafSpacing = slideWidth / (totalLeavesToDraw + 1);
-        
+
         // First 2 leaves
         for (let i = 0; i < 2; i++) {
           const x = leafSpacing * (i + 1) - 0.6;
           leafPositions.push({ x, y: leafY });
-          
+
           slide.addShape(pptx.ShapeType.rect, {
             x: x, y: leafY, w: 1.2, h: 0.8,
-            fill: { color: 'D2E5FF' },
+            fill: { color: leafColor },
             line: { color: '2F5496', width: 2 },
             shadow: { type: 'outer', blur: 3, offset: 2, angle: 45, color: '888888', opacity: 0.3 }
           });
-          
+
           slide.addText(`Leaf ${i + 1}\n${leaf?.model?.model || 'Switch'}`, {
             x: x, y: leafY + 0.1, w: 1.2, h: 0.6,
             fontSize: 10, bold: true, color: '1F4E79',
             align: 'center', valign: 'middle'
           });
         }
-        
+
         // Ellipsis leaf
         const ellipsisX = leafSpacing * 3 - 0.6;
         leafPositions.push({ x: ellipsisX, y: leafY });
-        
+
         slide.addShape(pptx.ShapeType.rect, {
           x: ellipsisX, y: leafY, w: 1.2, h: 0.8,
           fill: { color: 'E8E8E8' },
           line: { color: '888888', width: 1 }
         });
-        
+
         slide.addText(`...\n(${leafCount - 4} more)`, {
           x: ellipsisX, y: leafY + 0.1, w: 1.2, h: 0.6,
           fontSize: 9, color: '666666',
           align: 'center', valign: 'middle'
         });
-        
+
         // Last 2 leaves
         for (let i = 0; i < 2; i++) {
           const leafIndex = leafCount - 2 + i;
           const x = leafSpacing * (4 + i) - 0.6;
           leafPositions.push({ x, y: leafY });
-          
+
           slide.addShape(pptx.ShapeType.rect, {
             x: x, y: leafY, w: 1.2, h: 0.8,
-            fill: { color: 'D2E5FF' },
+            fill: { color: leafColor },
             line: { color: '2F5496', width: 2 },
             shadow: { type: 'outer', blur: 3, offset: 2, angle: 45, color: '888888', opacity: 0.3 }
           });
-          
+
           slide.addText(`Leaf ${leafIndex + 1}\n${leaf?.model?.model || 'Switch'}`, {
             x: x, y: leafY + 0.1, w: 1.2, h: 0.6,
             fontSize: 10, bold: true, color: '1F4E79',
@@ -590,45 +678,45 @@ function FabricGraph({ data }) {
           });
         }
       }
-      
+
       // Endpoint layer (bottom)
       const endpointY = startY + layerHeight * 3;
-      
+
       console.log('Creating endpoint groups...');
-      
+
       // Create endpoint groups for each leaf (including ellipsis leaf)
       for (let i = 0; i < leafPositions.length; i++) {
         const leafX = leafPositions[i].x;
-        
+
         // Check if this is the ellipsis leaf
         const isEllipsisLeaf = leafCount > maxLeavesToShow && i === 2;
-        
+
         if (isEllipsisLeaf) {
           // Add ellipsis endpoint under ellipsis leaf
           const endpointX = leafX;
-          
+
           slide.addShape(pptx.ShapeType.ellipse, {
             x: endpointX, y: endpointY, w: 0.4, h: 0.4,
             fill: { color: 'F0F0F0' },
             line: { color: '999999', width: 1 }
           });
-          
+
           slide.addText(`...\n(more)`, {
             x: endpointX, y: endpointY, w: 0.4, h: 0.4,
             fontSize: 6, color: '666666',
             align: 'center', valign: 'middle'
           });
-          
+
           // Add connection line from ellipsis leaf to ellipsis endpoint
           slide.addShape(pptx.ShapeType.line, {
             x: leafX + 0.6, y: leafY + 0.8,
             w: endpointX + 0.2 - (leafX + 0.6), h: endpointY - (leafY + 0.8),
             line: { color: '888888', width: 1 }
           });
-          
+
           continue; // Skip normal endpoint processing for ellipsis leaf
         }
-        
+
         // Map to correct leaf data index for actual leaves
         let leafDataIndex;
         if (leafCount <= maxLeavesToShow) {
@@ -642,91 +730,133 @@ function FabricGraph({ data }) {
             leafDataIndex = leafCount - 2 + (i - 3); // Last 2 leaves (i-3 because positions 3,4 map to indices 0,1)
           }
         }
-        
-        const thisLeaf = perLeaf[leafDataIndex] || { endpointCount: 0, endpointCounts: {} };
+
+        const thisLeaf = perLeaf[leafDataIndex] || { endpointCount: 0, endpointCounts: {}, groupedEndpoints: [] };
         const endpointCounts = thisLeaf.endpointCounts || {};
-        
-        let endpointIndex = 0;
-        Object.entries(endpointCounts).forEach(([speed, count]) => {
-          const endpointX = leafX + (endpointIndex * 0.3) - 0.15;
-          
+        const groupedEndpoints = thisLeaf.groupedEndpoints;
+
+        // Prepare list of items to draw (either groupedEndpoints or fallback to speed entries)
+        let itemsToDraw = [];
+        if (groupedEndpoints && groupedEndpoints.length > 0) {
+          itemsToDraw = groupedEndpoints.map(g => ({
+            label: `${g.name}\n${g.speed} x${g.count}`,
+            count: g.count,
+            color: (g.color || '#FFD2D2').replace('#', '')
+          }));
+        } else {
+          itemsToDraw = Object.entries(endpointCounts).map(([speed, count]) => ({
+            label: `${speed}\nx${count}`,
+            count,
+            speed,
+            color: 'FFD2D2'
+          }));
+        }
+
+        itemsToDraw.forEach((item, itemIdx) => {
+          const endpointX = leafX + (itemIdx * 0.4) - 0.2; // Slightly wider spacing for names
+
           // Add endpoint circle
           slide.addShape(pptx.ShapeType.ellipse, {
-            x: endpointX, y: endpointY, w: 0.4, h: 0.4,
-            fill: { color: 'FFD2D2' },
+            x: endpointX, y: endpointY, w: 0.5, h: 0.5,
+            fill: { color: item.color },
             line: { color: 'CC6677', width: 1 }
           });
-          
+
           // Add endpoint label
-          slide.addText(`${speed}\nx${count}`, {
-            x: endpointX, y: endpointY, w: 0.4, h: 0.4,
+          slide.addText(item.label, {
+            x: endpointX - 0.1, y: endpointY + 0.05, w: 0.7, h: 0.4,
             fontSize: 7, bold: true, color: '8B0000',
             align: 'center', valign: 'middle'
           });
-          
+
           // Add connection line from leaf to endpoint
           slide.addShape(pptx.ShapeType.line, {
             x: leafX + 0.6, y: leafY + 0.8,
-            w: endpointX + 0.2 - (leafX + 0.6), h: endpointY - (leafY + 0.8),
+            w: endpointX + 0.25 - (leafX + 0.6), h: endpointY - (leafY + 0.8),
             line: { color: '888888', width: 1 }
           });
-          
-          endpointIndex++;
+
+          // Add connection label (Speed x Count)
+          // Calculate midpoint
+          const midX = (leafX + 0.6 + endpointX + 0.25) / 2;
+          const midY = (leafY + 0.8 + endpointY) / 2;
+
+          // Extract text from label if available or reconstruct
+          // item.label contains name\nSpeed xCount which is messy for edge label
+          // Use item.speed if available or parse from label? 
+          // Re-using the logic: ${g.speed} x${g.count}
+          let edgeLabelText = '';
+          if (item.speed) {
+            edgeLabelText = `${item.speed} x${item.count}`;
+          } else {
+            // Try to find it in the multiline label
+            const parts = item.label.split('\n');
+            if (parts.length > 1) edgeLabelText = parts[1];
+            else edgeLabelText = item.label;
+          }
+
+          slide.addText(edgeLabelText, {
+            x: midX - 0.25, y: midY - 0.1, w: 0.63, h: 0.2,
+            fontSize: 8, bold: true, color: '333333',
+            align: 'center', valign: 'middle',
+            fill: { color: 'FFFFFF' },
+            line: { color: '333333', width: 1 }
+          });
         });
       }
-      
+
       // Create leaf-to-spine connections
       console.log('Creating leaf-to-spine connections...');
       const linksPerLeafPerSpine = topology.linksPerLeafPerSpine || 1;
-      
+
       // Get uplink speed from spine port spec
       const spinePortSpeed = spine?.model?.ports?.[0]?.max_speed_gbps || 0;
       const uplinkSpeedLabel = spinePortSpeed > 0 ? `${spinePortSpeed}G` : '';
-      
+
       // Include ellipsis nodes in connections
       const totalSpinePositions = spinePositions.length;
       const totalLeafPositions = leafPositions.length;
-      
+
       for (let leafIdx = 0; leafIdx < totalLeafPositions; leafIdx++) {
         for (let spineIdx = 0; spineIdx < totalSpinePositions; spineIdx++) {
           const leafPos = leafPositions[leafIdx];
           const spinePos = spinePositions[spineIdx];
-          
+
           // Determine if this should be a highlighted connection (with link count)
           const isFirstOrLastLeaf = leafIdx === 0 || leafIdx === totalLeafPositions - 1;
           const isEllipsisSpine = spineCount > maxSpinesToShow && spineIdx === 1; // Middle position is ellipsis
           const isLastSpine = spineCount > maxSpinesToShow && spineIdx === totalSpinePositions - 1; // Last spine
-          
+
           // Show link count for first/last leaves to all spines, even if x1
           const showLinkCount = isFirstOrLastLeaf;
-          
+
           // Create connection line
           const lineColor = showLinkCount ? '333333' : '888888';
           const lineWidth = showLinkCount ? 3 : 1;
           const lineDash = showLinkCount ? 'solid' : 'dash';
-          
+
           slide.addShape(pptx.ShapeType.line, {
             x: leafPos.x + 0.6, y: leafPos.y,
             w: spinePos.x + 0.6 - (leafPos.x + 0.6), h: spinePos.y + 0.8 - leafPos.y,
-            line: { 
-              color: lineColor, 
+            line: {
+              color: lineColor,
               width: lineWidth,
               dashType: lineDash
             }
           });
-          
+
           // Add link count label if needed
           if (showLinkCount) {
             const midX = (leafPos.x + spinePos.x + 1.2) / 2;
             const midY = (leafPos.y + spinePos.y + 0.8) / 2;
-            
+
             // Calculate link count - multiply by hidden spine count for ellipsis spine
             let linkCount = linksPerLeafPerSpine;
             if (isEllipsisSpine) {
               const hiddenSpineCount = spineCount - 2; // Total spines minus first and last shown
               linkCount = linksPerLeafPerSpine * hiddenSpineCount;
             }
-            
+
             const labelText = isEllipsisSpine ? `x${linkCount}` : `${uplinkSpeedLabel} x${linkCount} `;
             slide.addText(labelText, {
               x: midX - 0.25, y: midY - 0.1, w: 0.63, h: 0.2,
@@ -738,29 +868,30 @@ function FabricGraph({ data }) {
           }
         }
       }
-      
+
       // Add topology summary
       slide.addText([
         `Topology: ${topology.type || 'N/A'}`,
         `Leaves: ${leafCount} | Spines: ${spineCount}`,
         `Uplinks/Leaf: ${topology.uplinksPerLeaf || 0}`,
+        `Downlinks/Leaf: ${topology.downlinksPerLeaf || 0}`,
         `Links Leaf↔Spine: ${linksPerLeafPerSpine}`
       ].join('\n'), {
-        x: 0.5, y: startY + layerHeight * 4, w: 9, h: 1,
+        x: 0.5, y: startY + layerHeight * 4, w: 9, h: 1.2,
         fontSize: 12, color: '555555',
         align: 'left'
       });
-      
+
       console.log('All shapes created successfully');
-      
+
       // Generate filename with timestamp
       const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
       const filename = `fabric-topology-editable-${timestamp}.pptx`;
-      
+
       // Save the presentation
       console.log('Saving PowerPoint file...');
       await pptx.writeFile({ fileName: filename });
-      
+
       console.log(`Editable PowerPoint presentation saved as: ${filename}`);
     } catch (error) {
       console.error('Detailed error exporting to PowerPoint:', error);
@@ -775,7 +906,7 @@ function FabricGraph({ data }) {
     <div style={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
         <h2 style={{ marginTop: 0, marginBottom: 0 }}>Fabric Topology</h2>
-        <button 
+        <button
           onClick={exportToPowerPoint}
           disabled={isExporting || !data}
           style={{
