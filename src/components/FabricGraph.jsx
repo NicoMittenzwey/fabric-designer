@@ -902,6 +902,261 @@ function FabricGraph({ data }) {
     }
   };
 
+  // Draw.io (XML) export function
+  const exportToDrawIO = () => {
+    if (!data || !data.topology) return;
+
+    const { topology, leaf, spine, distribution } = data;
+    const leafCount = topology.leafCount || 0;
+    const spineCount = topology.spineCount || 0;
+    const perLeaf = distribution?.perLeaf || [];
+
+    // Colors
+    const spineColor = topology.spineColor || '#CDE7FF';
+    const leafColor = topology.leafColor || '#D2E5FF';
+
+    // Helper to escape XML special chars
+    const xmlEscape = (str) => {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;')
+        .replace(/\n/g, '&#xa;');
+    };
+
+    // Calculate layout positions (simulating the PPT/Web layout)
+    // Using a simpler coordinate system: 1 unit = 100px
+    const startX = 100;
+    const startY = 100;
+    const layerHeight = 250;
+    const nodeWidth = 120;
+    const nodeHeight = 60;
+
+    let xml = '<mxGraphModel><root>';
+    xml += '<mxCell id="0"/>';
+    xml += '<mxCell id="1" parent="0"/>';
+
+    let idCounter = 2; // Start IDs from 2
+
+    // --- SPINES ---
+    const spineY = startY;
+    const spinePositions = [];
+    const maxSpinesToShow = 3;
+    let spineSpacing, totalSpinesToDraw;
+
+    // Determine spine items
+    let spineItems = [];
+    if (spineCount <= maxSpinesToShow) {
+      spineItems = Array.from({ length: spineCount }, (_, i) => ({
+        type: 'spine',
+        index: i,
+        label: `Spine ${i + 1}\n${spine?.model?.model || 'Switch'}`
+      }));
+    } else {
+      spineItems = [
+        { type: 'spine', index: 0, label: `Spine 1\n${spine?.model?.model || 'Switch'}` },
+        { type: 'ellipsis', label: `...\n(${spineCount - 2} more)` },
+        { type: 'spine', index: spineCount - 1, label: `Spine ${spineCount}\n${spine?.model?.model || 'Switch'}` }
+      ];
+    }
+
+    // Calculate spacing
+    const totalWidth = 1200; // Arbitrary wide canvas
+    spineSpacing = totalWidth / (spineItems.length + 1);
+
+    spineItems.forEach((item, i) => {
+      const x = startX + spineSpacing * (i + 1) - nodeWidth / 2;
+      spinePositions.push({ x, y: spineY, item }); // Store for connections
+
+      const fillColor = item.type === 'ellipsis' ? '#E8E8E8' : spineColor;
+      const fontColor = item.type === 'ellipsis' ? '#666666' : '#000000';
+
+      xml += `<mxCell id="spine_${i}" value="${xmlEscape(item.label)}" style="rounded=0;whiteSpace=wrap;html=1;fillColor=${fillColor};fontColor=${fontColor};strokeColor=#6c8ebf;" vertex="1" parent="1">`;
+      xml += `<mxGeometry x="${x}" y="${spineY}" width="${nodeWidth}" height="${nodeHeight}" as="geometry"/>`;
+      xml += '</mxCell>';
+    });
+
+    // --- LEAVES ---
+    const leafY = startY + layerHeight;
+    const leafPositions = [];
+    const maxLeavesToShow = 5;
+    let leafItems = [];
+
+    if (leafCount <= maxLeavesToShow) {
+      leafItems = Array.from({ length: leafCount }, (_, i) => ({
+        type: 'leaf',
+        index: i,
+        dataIndex: i,
+        label: `Leaf ${i + 1}\n${leaf?.model?.model || 'Switch'}`
+      }));
+    } else {
+      leafItems = [
+        { type: 'leaf', index: 0, dataIndex: 0, label: `Leaf 1\n${leaf?.model?.model || 'Switch'}` },
+        { type: 'leaf', index: 1, dataIndex: 1, label: `Leaf 2\n${leaf?.model?.model || 'Switch'}` },
+        { type: 'ellipsis', label: `...\n(${leafCount - 4} more)` },
+        { type: 'leaf', index: leafCount - 2, dataIndex: leafCount - 2, label: `Leaf ${leafCount - 1}\n${leaf?.model?.model || 'Switch'}` },
+        { type: 'leaf', index: leafCount - 1, dataIndex: leafCount - 1, label: `Leaf ${leafCount}\n${leaf?.model?.model || 'Switch'}` }
+      ];
+    }
+
+    const leafSpacing = totalWidth / (leafItems.length + 1);
+
+    leafItems.forEach((item, i) => {
+      const x = startX + leafSpacing * (i + 1) - nodeWidth / 2;
+      leafPositions.push({ x, y: leafY, item }); // Store for connections
+
+      const fillColor = item.type === 'ellipsis' ? '#E8E8E8' : leafColor;
+      const fontColor = item.type === 'ellipsis' ? '#666666' : '#000000';
+
+      xml += `<mxCell id="leaf_${i}" value="${xmlEscape(item.label)}" style="rounded=0;whiteSpace=wrap;html=1;fillColor=${fillColor};fontColor=${fontColor};strokeColor=#82b366;" vertex="1" parent="1">`;
+      xml += `<mxGeometry x="${x}" y="${leafY}" width="${nodeWidth}" height="${nodeHeight}" as="geometry"/>`;
+      xml += '</mxCell>';
+    });
+
+    // --- ENDPOINTS ---
+    const epY = leafY + layerHeight;
+    const epWidth = 40;
+    const epHeight = 40;
+
+    leafPositions.forEach((leafPos, leafIdx) => {
+      const leafItem = leafPos.item;
+
+      if (leafItem.type === 'ellipsis') {
+        // Ellipsis endpoint
+        const x = leafPos.x + nodeWidth / 2 - epWidth / 2;
+        xml += `<mxCell id="ep_ell_${leafIdx}" value="..." style="ellipse;whiteSpace=wrap;html=1;fillColor=#F0F0F0;fontColor=#666666;" vertex="1" parent="1">`;
+        xml += `<mxGeometry x="${x}" y="${epY}" width="${epWidth}" height="${epHeight}" as="geometry"/>`;
+        xml += '</mxCell>';
+
+        // Edge
+        xml += `<mxCell id="edge_ell_${leafIdx}" value="" style="endArrow=none;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="leaf_${leafIdx}" target="ep_ell_${leafIdx}">`;
+        xml += '<mxGeometry width="50" height="50" relative="1" as="geometry"/>';
+        xml += '</mxCell>';
+        return;
+      }
+
+      // Real endpoints
+      const thisLeaf = perLeaf[leafItem.dataIndex] || { endpointCount: 0, endpointCounts: {}, groupedEndpoints: [] };
+      const groupedEndpoints = thisLeaf.groupedEndpoints;
+      const endpointCounts = thisLeaf.endpointCounts || {};
+
+      let itemsToDraw = [];
+      if (groupedEndpoints && groupedEndpoints.length > 0) {
+        itemsToDraw = groupedEndpoints.map(g => ({
+          label: `${g.name}\n${g.speed} x${g.count}`,
+          count: g.count,
+          color: g.color || '#FFD2D2',
+          speed: g.speed
+        }));
+      } else {
+        itemsToDraw = Object.entries(endpointCounts).map(([speed, count]) => ({
+          label: `${speed}\nx${count}`,
+          count,
+          speed,
+          color: '#FFD2D2'
+        }));
+      }
+
+      const totalEpWidth = itemsToDraw.length * (epWidth + 10);
+      const startEpX = leafPos.x + nodeWidth / 2 - totalEpWidth / 2;
+
+      itemsToDraw.forEach((ep, epIdx) => {
+        const x = startEpX + epIdx * (epWidth + 10);
+        const epId = `ep_${leafIdx}_${epIdx}`;
+
+        xml += `<mxCell id="${epId}" value="${xmlEscape(ep.label)}" style="ellipse;whiteSpace=wrap;html=1;fillColor=${ep.color};strokeColor=#b85450;" vertex="1" parent="1">`;
+        xml += `<mxGeometry x="${x}" y="${epY}" width="${epWidth}" height="${epHeight}" as="geometry"/>`;
+        xml += '</mxCell>';
+
+        // Determine edge label
+        let edgeLabel = '';
+        // Match logic from graph: ${speed} x${count}
+        // ep.label format is name\nspeed xcount OR speed\nxcount
+        // Cleaner: just construct it if we have raw data
+        edgeLabel = `${ep.speed} x${ep.count}`;
+
+        // Edge leaf -> endpoint
+        // Use 'entry' and 'exit' constraints to center lines
+        xml += `<mxCell id="edge_${epId}" value="${xmlEscape(edgeLabel)}" style="endArrow=none;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;exitX=0.5;exitY=1;exitDx=0;exitDy=0;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="leaf_${leafIdx}" target="${epId}">`;
+        xml += '<mxGeometry width="50" height="50" relative="1" as="geometry"/>';
+        xml += '</mxCell>';
+      });
+    });
+
+    // --- LEAF-TO-SPINE LINKS ---
+    const linksPerLeafPerSpine = topology.linksPerLeafPerSpine || 1;
+    const spineModel = spine?.model?.ports?.[0]?.max_speed_gbps || 0;
+    const uplinkSpeedLabel = spineModel > 0 ? `${spineModel}G` : '';
+
+    leafPositions.forEach((leafPos, leafIdx) => {
+      const leafItem = leafPos.item;
+
+      spinePositions.forEach((spinePos, spineIdx) => {
+        const spineItem = spinePos.item;
+
+        // Determine if highlighted label needed
+        const isFirstOrLastLeaf = leafIdx === 0 || leafIdx === leafPositions.length - 1;
+        const isEllipsisSpine = spineItem.type === 'ellipsis';
+
+        let labelText = '';
+        let style = 'endArrow=none;html=1;entryX=0.5;entryY=1;entryDx=0;entryDy=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;';
+
+        if (isFirstOrLastLeaf) {
+          let count = linksPerLeafPerSpine;
+          // If it's ellipsis spine, multiply
+          if (isEllipsisSpine) {
+            const hiddenSpineCount = spineCount - 2;
+            count = linksPerLeafPerSpine * hiddenSpineCount;
+            labelText = `x${count}`;
+          } else {
+            labelText = `${uplinkSpeedLabel} x${count}`;
+          }
+          style += 'strokeWidth=3;strokeColor=#333333;labelBackgroundColor=#FFFFFF;';
+        } else {
+          style += 'strokeColor=#888888;dashed=1;';
+        }
+
+        const sid = `link_${leafIdx}_${spineIdx}`;
+
+        xml += `<mxCell id="${sid}" value="${xmlEscape(labelText)}" style="${style}" edge="1" parent="1" source="leaf_${leafIdx}" target="spine_${spineIdx}">`;
+        xml += '<mxGeometry width="50" height="50" relative="1" as="geometry"/>';
+        xml += '</mxCell>';
+      });
+    });
+
+    // Add summary Text
+    const summaryText = [
+      `Topology: ${topology.type || 'N/A'}`,
+      `Leaves: ${leafCount} | Spines: ${spineCount}`,
+      `Uplinks/Leaf: ${topology.uplinksPerLeaf || 0}`,
+      `Downlinks/Leaf: ${topology.downlinksPerLeaf || 0}`,
+      `Links Leaf↔Spine: ${linksPerLeafPerSpine}`
+    ].join('\n');
+
+    xml += `<mxCell id="summary" value="${xmlEscape(summaryText)}" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;overflow=hidden;" vertex="1" parent="1">`;
+    xml += `<mxGeometry x="${startX}" y="${epY + 100}" width="400" height="100" as="geometry"/>`;
+    xml += '</mxCell>';
+
+    xml += '</root></mxGraphModel>';
+
+    // Download file
+    const blob = new Blob([xml], { type: 'application/xml' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `fabric-topology-${new Date().toISOString().slice(0, 10)}.drawio`;
+    document.body.appendChild(link);
+    link.click();
+
+    setTimeout(() => {
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    }, 100);
+  };
+
   return (
     <div style={{ height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
@@ -921,6 +1176,22 @@ function FabricGraph({ data }) {
           }}
         >
           {isExporting ? 'Exporting...' : '📊 Export to PowerPoint'}
+        </button>
+        <button
+          onClick={exportToDrawIO}
+          style={{
+            marginLeft: '10px',
+            padding: '8px 16px',
+            backgroundColor: '#f08705',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 'bold'
+          }}
+        >
+          📝 Export to Draw.io
         </button>
       </div>
       <div style={{ marginBottom: '8px' }}>
